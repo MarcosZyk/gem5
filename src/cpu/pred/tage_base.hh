@@ -537,7 +537,6 @@ class TAGEBase : public SimObject
     unsigned numUseAltOnNa;
     unsigned useAltOnNaBits;
     unsigned maxNumAlloc;
-
     /** Use taken only history. */
     const bool takenOnlyHistory;
 

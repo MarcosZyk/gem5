@@ -219,6 +219,9 @@ BPredUnit::predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
             // In case of a call build the return address and
             // push it to the RAS.
             auto return_addr = inst->buildRetPC(pc, pc);
+            if (inst->size()) {
+                return_addr->set(pc.instAddr() + inst->size());
+            }
             ras->push(tid, *return_addr, hist->rasHistory);
 
             DPRINTF(Branch, "[tid:%i] [sn:%llu] Instr. %s was "
@@ -440,7 +443,7 @@ BPredUnit::squashHistory(ThreadID tid, PredictorHistory* &history)
                         history->indirectHistory);
     }
 
-    // This call should delete the bpHistory.
+    // This call will delete the bpHistory.
     squash(tid, history->bpHistory);
 
     delete history;

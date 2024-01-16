@@ -601,7 +601,6 @@ TAGEBase::updatePathAndGlobalHistory(ThreadID tid, int brtype, bool taken,
     bi->nGhist = 1;
     // Update the global history
     updateGHist(tid, bi->ghist, bi->nGhist);
-    bi->modified = true;
 }
 
 
@@ -646,6 +645,7 @@ TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool speculative,
     // TAGE implementations.
     updatePathAndGlobalHistory(tid, branchTypeExtra(inst), taken,
                                branch_pc, target, bi);
+    bi->modified = true;
 
     DPRINTF(Tage, "Updating global histories with branch:%lx; taken?:%d, "
             "path Hist: %x; pointer:%d\n", branch_pc, taken,

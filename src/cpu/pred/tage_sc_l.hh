@@ -180,8 +180,7 @@ class TAGE_SC_L: public LTAGE
                          bool taken, Addr target, const StaticInstPtr &inst,
                          void * &bp_history) override;
     void branchPlaceholder(ThreadID tid, Addr pc,
-                                bool uncond, void * &bp_history) override
-    { panic("Not implemented for this BP!\n"); }
+                                bool uncond, void * &bp_history) override;
 
   protected:
 

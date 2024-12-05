@@ -369,7 +369,7 @@ class TAGE_SC_L_TAGE(TAGEBase):
     initialTCounterValue = 1 << 9
     useAltOnNaBits = 5
     # TODO No speculation implemented as of now
-    speculativeHistUpdate = False
+    speculativeHistUpdate = True
 
     # This size does not set the final sizes of the tables (it is just used
     # for some calculations)
@@ -618,6 +618,10 @@ class StatisticalCorrector(SimObject):
 
     initialUpdateThresholdValue = Param.Int(
         0, "Initial pUpdate threshold counter value"
+    )
+
+    speculativeHistUpdate = Param.Bool(
+        True, "Use speculative update for the statistical corrector"
     )
 
 

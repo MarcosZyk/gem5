@@ -121,15 +121,16 @@ class TAGE_SC_L_64KB_StatisticalCorrector : public StatisticalCorrector
         int altBank) const override;
 
     int gPredictions(ThreadID tid, Addr branch_pc, BranchInfo* bi,
-                     int & lsum, int64_t phist) override;
+        int & lsum) override;
 
     int gIndexLogsSubstr(int nbr, int i) override;
 
     void scHistoryUpdate(Addr branch_pc, const StaticInstPtr &inst, bool taken,
-                         BranchInfo * tage_bi, Addr corrTarget) override;
+                         Addr target, int64_t phist) override;
+    void scRecordHistState(Addr branch_pc, BranchInfo *bi) override;
+    bool scRestoreHistState(BranchInfo *bi) override;
 
-    void gUpdates(ThreadID tid, Addr pc, bool taken, BranchInfo* bi,
-            int64_t phist) override;
+    void gUpdates(ThreadID tid, Addr pc, bool taken, BranchInfo* bi) override;
 };
 
 class TAGE_SC_L_64KB : public TAGE_SC_L

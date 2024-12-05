@@ -391,7 +391,7 @@ TAGE_SC_L::predict(ThreadID tid, Addr pc, bool cond_branch, void* &b)
         pred_taken = statisticalCorrector->scPredict(tid, pc, cond_branch,
                 bi->scBranchInfo, pred_taken, bias, use_tage_ctr, tage_ctr,
                 tage->getTageCtrBits(), bi->tageBranchInfo->hitBank,
-                bi->tageBranchInfo->altBank, tage->getPathHist(tid));
+                bi->tageBranchInfo->altBank);
 
         if (bi->scBranchInfo->usedScPred) {
             bi->tageBranchInfo->provider = SC;
@@ -422,6 +422,11 @@ TAGE_SC_L::update(ThreadID tid, Addr pc, bool taken, void *&bp_history,
             if (bi->tageBranchInfo->condBranch) {
                 loopPredictor->squashLoop(bi->lpBranchInfo);
             }
+            if (useSC) {
+                statisticalCorrector->updateHistories(pc, true, inst, taken,
+                                              bi->scBranchInfo, target,
+                                              tage->getPathHist(tid));
+            }
         }
         return;
     }
@@ -441,7 +446,7 @@ TAGE_SC_L::update(ThreadID tid, Addr pc, bool taken, void *&bp_history,
                         bi->tageBranchInfo->altTaken);
             statisticalCorrector->condBranchUpdate(tid, pc, taken,
                 bi->scBranchInfo, target, bias, bi->tageBranchInfo->hitBank,
-                bi->tageBranchInfo->altBank, tage->getPathHist(tid));
+                bi->tageBranchInfo->altBank);
         }
 
         loopPredictor->condBranchUpdate(tid, pc, taken,
@@ -451,15 +456,42 @@ TAGE_SC_L::update(ThreadID tid, Addr pc, bool taken, void *&bp_history,
                                nrand, target, bi->lpBranchInfo->predTaken);
     }
 
-    if (useSC) {
-        statisticalCorrector->scHistoryUpdate(pc, inst, taken,
-                                            bi->scBranchInfo, target);
-    }
-
     tage->updateHistories(tid, pc, false, taken, target,
                             inst, bi->tageBranchInfo);
+
+    if (useSC) {
+        statisticalCorrector->updateHistories(pc, false, inst, taken,
+                                            bi->scBranchInfo, target,
+                                            tage->getPathHist(tid, false));
+    }
+
+
     delete bi;
     bp_history = nullptr;
+}
+
+void
+TAGE_SC_L::squash(ThreadID tid, void * &bp_history)
+{
+    TageSCLBranchInfo* bi = static_cast<TageSCLBranchInfo*>(bp_history);
+    if (useSC) {
+        statisticalCorrector->scRestoreHistState(bi->scBranchInfo);
+    }
+    LTAGE::squash(tid, bp_history);
+}
+
+
+void
+TAGE_SC_L::updateHistories(ThreadID tid, Addr pc, bool uncond, bool taken,
+                   Addr target, const StaticInstPtr &inst, void * &bp_history)
+{
+    TAGE::updateHistories(tid, pc, uncond, taken, target, inst, bp_history);
+    if (useSC) {
+        auto bi = static_cast<TageSCLBranchInfo*>(bp_history);
+        statisticalCorrector->updateHistories(pc, true, inst, taken,
+                                              bi->scBranchInfo, target,
+                                              tage->getPathHist(tid));
+    }
 }
 
 

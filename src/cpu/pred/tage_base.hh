@@ -474,7 +474,8 @@ class TAGEBase : public SimObject
     unsigned getGHR(ThreadID tid) const;
     int8_t getCtr(int hitBank, int hitBankIndex) const;
     unsigned getTageCtrBits() const;
-    int getPathHist(ThreadID tid) const;
+    int getPathHist(ThreadID tid, bool speculative=true) const;
+    int calcNewPathHist(ThreadID tid, Addr pc, int old_phist) const;
     bool isSpeculativeUpdateEnabled() const;
     size_t getSizeInBits() const;
 
@@ -502,6 +503,8 @@ class TAGEBase : public SimObject
         // Speculative path history
         // (LSB of branch address)
         int pathHist;
+        // Non-speculative path history
+        int nonSpecPathHist;
 
         // Speculative branch direction
         // history (circular buffer)

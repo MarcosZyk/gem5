@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2024 Technical University of Munich
  * Copyright (c) 2018 Metempsy Technology Consulting
  * All rights reserved.
  *
@@ -71,6 +72,7 @@ StatisticalCorrector::StatisticalCorrector(
     extraWeightsWidth(p.extraWeightsWidth),
     scCountersWidth(p.scCountersWidth),
     instShiftAmt(p.instShiftAmt),
+    speculativeHistUpdate(p.speculativeHistUpdate),
     firstH(0),
     secondH(0),
     stats(this)
@@ -236,32 +238,23 @@ bool
 StatisticalCorrector::scPredict(ThreadID tid, Addr branch_pc, bool cond_branch,
                      BranchInfo* bi, bool prev_pred_taken, bool bias_bit,
                      bool use_conf_ctr, int8_t conf_ctr, unsigned conf_bits,
-                     int hitBank, int altBank, int64_t phist, int init_lsum)
+                     int hitBank, int altBank, int init_lsum)
 {
     bool pred_taken = prev_pred_taken;
     if (cond_branch) {
 
         bi->predBeforeSC = prev_pred_taken;
-
-        // first calc/update the confidences from the TAGE prediction
-        if (use_conf_ctr) {
-            bi->lowConf = (abs(2 * conf_ctr + 1) == 1);
-            bi->medConf = (abs(2 * conf_ctr + 1) == 5);
-            bi->highConf = (abs(2 * conf_ctr + 1) >= (1<<conf_bits) - 1);
-        }
-
         int lsum = init_lsum;
 
-        int8_t ctr = bias[getIndBias(branch_pc, bi, bias_bit)];
-        lsum += (2 * ctr + 1);
-        ctr = biasSK[getIndBiasSK(branch_pc, bi)];
-        lsum += (2 * ctr + 1);
-        ctr = biasBank[getIndBiasBank(branch_pc, bi, hitBank, altBank)];
-        lsum += (2 * ctr + 1);
+        lsum += calcBias(branch_pc, bi, bias_bit,
+                         use_conf_ctr, conf_ctr, conf_bits, hitBank, altBank);
 
-        lsum = (1 + (wb[getIndUpds(branch_pc)] >= 0)) * lsum;
+        // Record the history state to be able to recover
+        // The gPredictions function will use the recorded state to
+        // make the predictions
+        scRecordHistState(branch_pc, bi);
 
-        int thres = gPredictions(tid, branch_pc, bi, lsum, phist);
+        int thres = gPredictions(tid, branch_pc, bi, lsum);
 
         // These will be needed at update time
         bi->lsum = lsum;
@@ -297,18 +290,71 @@ StatisticalCorrector::scPredict(ThreadID tid, Addr branch_pc, bool cond_branch,
     return pred_taken;
 }
 
+int
+StatisticalCorrector::calcBias(Addr branch_pc, BranchInfo* bi,
+        bool bias_bit, bool use_conf_ctr,
+        int8_t conf_ctr, unsigned conf_bits, int hitBank, int altBank)
+{
+    // first calc/update the confidences from the TAGE prediction
+    if (use_conf_ctr) {
+        bi->lowConf = (abs(2 * conf_ctr + 1) == 1);
+        bi->medConf = (abs(2 * conf_ctr + 1) == 5);
+        bi->highConf = (abs(2 * conf_ctr + 1) >= (1<<conf_bits) - 1);
+    }
+
+    int lsum = 0;
+
+    int8_t ctr = bias[getIndBias(branch_pc, bi, bias_bit)];
+    lsum += (2 * ctr + 1);
+    ctr = biasSK[getIndBiasSK(branch_pc, bi)];
+    lsum += (2 * ctr + 1);
+    ctr = biasBank[getIndBiasBank(branch_pc, bi, hitBank, altBank)];
+    lsum += (2 * ctr + 1);
+
+    lsum = (1 + (wb[getIndUpds(branch_pc)] >= 0)) * lsum;
+    return lsum;
+}
+
+
+void
+StatisticalCorrector::updateHistories(Addr branch_pc, bool speculative,
+        const StaticInstPtr &inst, bool taken, BranchInfo * bi,
+        Addr target, int64_t phist)
+{
+    if (speculative != speculativeHistUpdate) {
+        return;
+    }
+
+    // If this is the first time we see this branch record the current
+    // state of the history to be able to recover.
+    if (speculativeHistUpdate && (!bi->modified)) {
+        scRecordHistState(branch_pc, bi);
+    }
+
+    // In case the branch already updated the history
+    // we need to revert the previous update first.
+    if (bi->modified) {
+        scRestoreHistState(bi);
+    }
+
+    // Update the SC histories
+    scHistoryUpdate(branch_pc, inst, taken, target, phist);
+    bi->modified = true;
+}
+
 void
 StatisticalCorrector::scHistoryUpdate(Addr branch_pc,
-        const StaticInstPtr &inst, bool taken, BranchInfo * tage_bi,
-        Addr corrTarget)
+        const StaticInstPtr &inst, bool taken, Addr target, int64_t phist)
 {
+    // Update the path history from TAGE
+    scHistory->pHist = phist;
     int brtype = inst->isDirectCtrl() ? 0 : 2;
     if (! inst->isUncondCtrl()) {
         ++brtype;
     }
     // Non speculative SC histories update
     if (brtype & 1) {
-        if (corrTarget < branch_pc) {
+        if (target < branch_pc) {
             //This branch corresponds to a loop
             if (!taken) {
                 //exit of the "loop"
@@ -321,16 +367,49 @@ StatisticalCorrector::scHistoryUpdate(Addr branch_pc,
         }
 
         scHistory->bwHist = (scHistory->bwHist << 1) +
-                                (taken & (corrTarget < branch_pc));
+                                (taken & (target < branch_pc));
         scHistory->updateLocalHistory(1, branch_pc, taken);
     }
 }
 
 void
+StatisticalCorrector::scRecordHistState(Addr branch_pc, BranchInfo *bi)
+{
+    bi->pc = branch_pc;
+    bi->bwHist = scHistory->bwHist;
+    bi->imliCount = scHistory->imliCount;
+    bi->pHist = scHistory->pHist;
+    bi->localHistories[1] = scHistory->getLocalHistory(1, branch_pc);
+}
+
+bool
+StatisticalCorrector::scRestoreHistState(BranchInfo *bi)
+{
+    if (!bi->modified) {
+        return false;
+    }
+    scHistory->bwHist = bi->bwHist;
+    scHistory->imliCount = bi->imliCount;
+    scHistory->setLocalHistory(1, bi->pc, bi->localHistories[1]);
+    return true;
+}
+
+
+void
 StatisticalCorrector::condBranchUpdate(ThreadID tid, Addr branch_pc,
         bool taken, BranchInfo *bi, Addr corrTarget, bool b, int hitBank,
-        int altBank, int64_t phist)
+        int altBank)
 {
+
+    if (speculativeHistUpdate) {
+        // For speculative updates we recalculate the lsum as it might
+        // have changed since the last update
+
+        bi->lsum = calcBias(branch_pc, bi, b, false/* was already recorded*/,
+                            0, 0, hitBank, altBank);
+        bi->thres = gPredictions(tid, branch_pc, bi, bi->lsum);
+    }
+
     bool scPred = (bi->lsum >= 0);
 
     if (bi->predBeforeSC != scPred) {
@@ -381,7 +460,7 @@ StatisticalCorrector::condBranchUpdate(ThreadID tid, Addr branch_pc,
         ctrUpdate(biasSK[indBiasSK], taken, scCountersWidth);
         ctrUpdate(biasBank[indBiasBank], taken, scCountersWidth);
 
-        gUpdates(tid, branch_pc, taken, bi, phist);
+        gUpdates(tid, branch_pc, taken, bi);
     }
 }
 

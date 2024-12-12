@@ -1099,3 +1099,12 @@ class MultiperspectivePerceptronTAGE8KB(MultiperspectivePerceptronTAGE):
     tage = MPP_TAGE_8KB()
     loop_predictor = MPP_LoopPredictor_8KB()
     statistical_corrector = MPP_StatisticalCorrector_8KB()
+
+
+class TageSCLRef(BranchPredictor):
+    type = "TageSCLRef"
+    cxx_class = "gem5::branch_prediction::TageSCLRef"
+    cxx_header = "cpu/pred/tagescl_ref.hh"
+
+    localPredictorSize = Param.Unsigned(2048, "Size of local predictor")
+    localCtrBits = Param.Unsigned(2, "Bits per counter")

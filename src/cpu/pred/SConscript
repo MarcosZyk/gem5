@@ -52,7 +52,9 @@ SimObject('BranchPredictor.py',
     'LTAGE', 'TAGE_SC_L_LoopPredictor', 'StatisticalCorrector', 'TAGE_SC_L',
     'TAGE_SC_L_64KB_StatisticalCorrector',
     'TAGE_SC_L_8KB_StatisticalCorrector',
-    'TAGE_SC_L_64KB', 'TAGE_SC_L_8KB', 'MultiperspectivePerceptron',
+    'TAGE_SC_L_64KB', 'TAGE_SC_L_8KB',
+    'TageSCLRef',
+    'MultiperspectivePerceptron',
     'MultiperspectivePerceptron8KB', 'MultiperspectivePerceptron64KB',
     'MPP_TAGE', 'MPP_LoopPredictor', 'MPP_StatisticalCorrector',
     'MultiperspectivePerceptronTAGE', 'MPP_StatisticalCorrector_64KB',
@@ -70,6 +72,7 @@ Source('tournament.cc')
 Source('bi_mode.cc')
 Source('tage_base.cc')
 Source('tage.cc')
+Source('tagescl_ref.cc')
 Source('loop_predictor.cc')
 Source('ltage.cc')
 Source('multiperspective_perceptron.cc')

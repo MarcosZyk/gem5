@@ -200,7 +200,7 @@ class StatisticalCorrector : public SimObject
     const unsigned scCountersWidth;
 
     const unsigned instShiftAmt;
-    
+
     // Enable speculative updates of the SC histories
     const bool speculativeHistUpdate;
     // Maximum number of ordinal histories

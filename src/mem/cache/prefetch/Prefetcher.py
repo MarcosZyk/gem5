@@ -727,3 +727,13 @@ class PIFPrefetcher(QueuedPrefetcher):
         self.addEvent(
             HWPProbeEventRetiredInsts(self, simObj, "RetiredInstsPC")
         )
+
+
+class FetchDirectedPrefetcher(QueuedPrefetcher):
+    type = "FetchDirectedPrefetcher"
+    cxx_class = "gem5::prefetch::FetchDirected"
+    cxx_header = "mem/cache/prefetch/fetch_directed.hh"
+
+    max_streams = Param.Unsigned(16, "Maximum number of prefetch streams")
+    degree = Param.Unsigned(4, "Number of prefetch blocks to fetch")
+    cross_pages = Param.Bool(False, "Allow prefetches to cross page boundaries")

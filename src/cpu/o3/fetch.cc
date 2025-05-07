@@ -83,6 +83,7 @@ Fetch::Fetch(CPU *_cpu, const BaseO3CPUParams &params)
     : fetchPolicy(params.smtFetchPolicy),
       cpu(_cpu),
       branchPred(nullptr),
+      instPrefetcher(nullptr),
       decodeToFetchDelay(params.decodeToFetchDelay),
       renameToFetchDelay(params.renameToFetchDelay),
       iewToFetchDelay(params.iewToFetchDelay),
@@ -520,6 +521,14 @@ Fetch::lookupAndUpdateNextPC(const DynInstPtr &inst, PCStateBase &next_pc)
 
     if (predict_taken) {
         ++fetchStats.predictedBranches;
+        
+        // Notify the instruction prefetcher about the branch prediction
+        if (instPrefetcher) {
+            instPrefetcher->notifyBranchPrediction(
+                inst->pcState().instAddr(),
+                next_pc.instAddr(),
+                predict_taken);
+        }
     }
 
     return predict_taken;

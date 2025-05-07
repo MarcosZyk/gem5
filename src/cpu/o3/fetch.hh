@@ -53,6 +53,7 @@
 #include "cpu/timebuf.hh"
 #include "cpu/translation.hh"
 #include "enums/SMTFetchPolicy.hh"
+#include "mem/cache/prefetch/fetch_directed.hh"
 #include "mem/packet.hh"
 #include "mem/port.hh"
 #include "sim/eventq.hh"
@@ -414,6 +415,13 @@ class Fetch
 
     /** BPredUnit. */
     branch_prediction::BPredUnit *branchPred;
+    
+    /** Pointer to the instruction prefetcher. */
+    prefetch::FetchDirected *instPrefetcher;
+    
+    /** Sets the instruction prefetcher. */
+    void setInstPrefetcher(prefetch::FetchDirected *prefetcher)
+    { instPrefetcher = prefetcher; }
 
     std::unique_ptr<PCStateBase> pc[MaxThreads];
 

@@ -4,6 +4,10 @@
 
 The Fetch Directed Prefetcher is an instruction prefetcher that coordinates between the CPU fetch stage and the cache prefetcher to improve instruction prefetching. It implements the architecture shown in Figure 1 of the design document.
 
+Instruction supply is a crucial component of processor performance. Instruction prefetching has been proposed as a mechanism to help reduce instruction cache misses, which in turn can help increase instruction supply to the processor.
+
+This architecture uses a decoupled branch predictor and instruction cache, so the branch predictor can run ahead of the instruction cache fetch. In addition, it examines marking fetch blocks in the branch predictor that are kicked out of the instruction cache, so branch predicted fetch blocks can be accurately prefetched. Finally, it models the use of idle instruction cache ports to filter prefetch requests, thereby saving bus bandwidth to the L2 cache.
+
 ## Architecture Components
 
 1. **PIQ (Prefetch Instruction Queue)**: Stores prefetch candidates from the CPU fetch stage.

@@ -1,6 +1,4 @@
-# -*- mode:python -*-
-
-# Copyright (c) 2006 The Regents of The University of Michigan
+# Copyright (c) 2025 All-Hands
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,35 +24,27 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Import('*')
+from m5.params import *
+from m5.proxy import *
 
-SimObject('Prefetcher.py', sim_objects=[
-    'BasePrefetcher', 'MultiPrefetcher', 'QueuedPrefetcher',
-    'StridePrefetcherHashedSetAssociative', 'StridePrefetcher',
-    'SmsPrefetcher', 'TaggedPrefetcher', 'IndirectMemoryPrefetcher',
-    'SignaturePathPrefetcher', 'SignaturePathPrefetcherV2',
-    'AccessMapPatternMatching', 'AMPMPrefetcher',
-    'DeltaCorrelatingPredictionTables', 'DCPTPrefetcher',
-    'IrregularStreamBufferPrefetcher', 'SlimAMPMPrefetcher',
-    'BOPPrefetcher', 'SBOOEPrefetcher', 'STeMSPrefetcher', 'PIFPrefetcher'])
+from m5.objects.QueuedPrefetcher import QueuedPrefetcher
 
-SimObject('FetchDirectedPrefetcher.py', sim_objects=['FetchDirectedPrefetcher'])
+class FetchDirectedPrefetcher(QueuedPrefetcher):
+    type = 'FetchDirectedPrefetcher'
+    cxx_class = 'gem5::prefetch::FetchDirected'
+    cxx_header = 'mem/cache/prefetch/fetch_directed.hh'
 
-Source('access_map_pattern_matching.cc')
-Source('base.cc')
-Source('multi.cc')
-Source('bop.cc')
-Source('delta_correlating_prediction_tables.cc')
-Source('fetch_directed.cc')
-Source('irregular_stream_buffer.cc')
-Source('indirect_memory.cc')
-Source('pif.cc')
-Source('queued.cc')
-Source('sbooe.cc')
-Source('sms.cc')
-Source('signature_path.cc')
-Source('signature_path_v2.cc')
-Source('slim_ampm.cc')
-Source('spatio_temporal_memory_streaming.cc')
-Source('stride.cc')
-Source('tagged.cc')
+    # PIQ (Prefetch Instruction Queue) size
+    piq_size = Param.Unsigned(16, "Maximum size of the PIQ")
+    
+    # FTQ (Fetch Target Queue) size
+    ftq_size = Param.Unsigned(16, "Maximum size of the FTQ")
+    
+    # Prefetch buffer size
+    prefetch_buffer_size = Param.Unsigned(32, "Maximum size of the prefetch buffer")
+    
+    # Number of prefetch requests to issue per cycle
+    prefetch_degree = Param.Unsigned(4, "Number of prefetch requests to issue per cycle")
+    
+    # Prefetch distance in blocks
+    prefetch_distance = Param.Unsigned(2, "Prefetch distance in blocks")

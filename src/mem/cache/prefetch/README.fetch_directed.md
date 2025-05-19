@@ -35,6 +35,9 @@ The prefetcher can be configured with the following parameters:
 - `prefetch_buffer_size`: Maximum size of the prefetch buffer (default: 32)
 - `prefetch_degree`: Number of prefetch requests to issue per cycle (default: 4)
 - `prefetch_distance`: Prefetch distance in blocks (default: 2)
+- `enable_decoupled_bp`: Enable decoupled branch predictor (default: True)
+- `enable_cache_eviction_tracking`: Enable tracking of blocks kicked out of the instruction cache (default: True)
+- `enable_idle_port_filtering`: Enable using idle instruction cache ports to filter prefetch requests (default: True)
 
 ## Usage
 
@@ -46,11 +49,17 @@ system.l2.prefetcher = FetchDirectedPrefetcher(
     ftq_size=16,
     prefetch_buffer_size=32,
     prefetch_degree=4,
-    prefetch_distance=2
+    prefetch_distance=2,
+    enable_decoupled_bp=True,
+    enable_cache_eviction_tracking=True,
+    enable_idle_port_filtering=True
 )
 ```
 
-A sample configuration script is provided in `configs/example/fetch_directed_prefetcher.py`.
+Sample configuration scripts are provided in:
+- `configs/example/fetch_directed_prefetcher.py`: Basic configuration
+- `configs/example/prefetcher_comparison.py`: Comparison with other prefetchers
+- `configs/example/fetch_directed_test.py`: Feature-specific tests
 
 ## Statistics
 
@@ -70,6 +79,36 @@ To enable debug output for the Fetch Directed Prefetcher, use the `FetchDirected
 
 ```
 ./build/X86/gem5.opt --debug-flags=FetchDirectedPrefetch configs/example/fetch_directed_prefetcher.py
+```
+
+## Comparison Tests
+
+The implementation includes scripts to compare the Fetch Directed Prefetcher with other prefetching techniques:
+
+1. **prefetcher_comparison.py**: Compares the performance of different instruction prefetchers:
+   - No prefetching (baseline)
+   - Next-line prefetching
+   - Streaming buffer prefetching
+   - Fetch Directed Prefetching
+
+2. **fetch_directed_test.py**: Tests specific features of the Fetch Directed Prefetcher:
+   - Decoupled branch predictor and instruction cache
+   - Marking fetch blocks kicked out of the instruction cache
+   - Using idle instruction cache ports to filter prefetch requests
+
+3. **run_prefetcher_comparison.sh**: A shell script to run the comparison tests with different benchmarks.
+
+### Running the Comparison Tests
+
+```bash
+# Run the prefetcher comparison
+./build/X86/gem5.opt configs/example/prefetcher_comparison.py --cmd=/bin/ls --options="-la /"
+
+# Run the feature-specific tests
+./build/X86/gem5.opt configs/example/fetch_directed_test.py --cmd=/bin/ls --options="-la /"
+
+# Run the full comparison suite with multiple benchmarks
+./configs/example/run_prefetcher_comparison.sh
 ```
 
 ## Future Work

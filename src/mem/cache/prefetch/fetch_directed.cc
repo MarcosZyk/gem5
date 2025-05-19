@@ -70,6 +70,9 @@ FetchDirected::FetchDirected(const FetchDirectedPrefetcherParams &p)
       prefetchBufferSize(p.prefetch_buffer_size),
       prefetchDegree(p.prefetch_degree),
       prefetchDistance(p.prefetch_distance),
+      enableDecoupledBP(p.enable_decoupled_bp),
+      enableCacheEvictionTracking(p.enable_cache_eviction_tracking),
+      enableIdlePortFiltering(p.enable_idle_port_filtering),
       statsFetchDirected(this)
 {
 }
@@ -97,7 +100,7 @@ FetchDirected::calculatePrefetch(const PrefetchInfo &pfi,
         if (!piq.empty()) {
             // Get the current FTQ prefetch candidate if available
             Addr prefetch_target = 0;
-            if (!ftq.empty()) {
+            if (enableDecoupledBP && !ftq.empty()) {
                 prefetch_target = ftq.front();
             }
 
@@ -138,6 +141,21 @@ FetchDirected::calculatePrefetch(const PrefetchInfo &pfi,
                     statsFetchDirected.pfCandidatesFiltered++;
                     continue;
                 }
+                
+                // Apply idle port filtering if enabled
+                if (enableIdlePortFiltering) {
+                    // Check if there are idle instruction cache ports
+                    // This is a simplified model - in a real implementation,
+                    // we would check the actual port utilization
+                    bool has_idle_ports = (random() % 100) < 70; // 70% chance of having idle ports
+                    
+                    if (!has_idle_ports) {
+                        DPRINTF(FetchDirectedPrefetch, 
+                                "Prefetch candidate %#x filtered due to no idle ports\n", pf_addr);
+                        statsFetchDirected.pfCandidatesFiltered++;
+                        continue;
+                    }
+                }
 
                 // Add the prefetch candidate to the list
                 DPRINTF(FetchDirectedPrefetch, 
@@ -174,6 +192,18 @@ FetchDirected::addToPIQ(Addr addr)
             DPRINTF(FetchDirectedPrefetch, "Removing %#x from PIQ\n", piq.front());
             piq.pop_front();
         }
+    }
+}
+
+void
+FetchDirected::notifyCacheEviction(Addr addr)
+{
+    // If cache eviction tracking is enabled, mark this address for prefetching
+    if (enableCacheEvictionTracking) {
+        DPRINTF(FetchDirectedPrefetch, "Cache eviction notification for %#x\n", addr);
+        
+        // Add to FTQ with high priority
+        addToFTQ(addr);
     }
 }
 

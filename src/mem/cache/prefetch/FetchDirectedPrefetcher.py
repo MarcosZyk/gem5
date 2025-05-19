@@ -48,3 +48,12 @@ class FetchDirectedPrefetcher(QueuedPrefetcher):
     
     # Prefetch distance in blocks
     prefetch_distance = Param.Unsigned(2, "Prefetch distance in blocks")
+    
+    # Enable/disable decoupled branch predictor
+    enable_decoupled_bp = Param.Bool(True, "Enable decoupled branch predictor")
+    
+    # Enable/disable cache eviction tracking
+    enable_cache_eviction_tracking = Param.Bool(True, "Enable tracking of blocks kicked out of the instruction cache")
+    
+    # Enable/disable idle port filtering
+    enable_idle_port_filtering = Param.Bool(True, "Enable using idle instruction cache ports to filter prefetch requests")

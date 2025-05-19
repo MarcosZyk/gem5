@@ -76,6 +76,15 @@ class FetchDirected : public Queued
 
     /** Prefetch distance in blocks */
     const unsigned prefetchDistance;
+    
+    /** Enable/disable decoupled branch predictor */
+    const bool enableDecoupledBP;
+    
+    /** Enable/disable cache eviction tracking */
+    const bool enableCacheEvictionTracking;
+    
+    /** Enable/disable idle port filtering */
+    const bool enableIdlePortFiltering;
 
     /** Prefetch Instruction Queue (PIQ) */
     std::deque<Addr> piq;
@@ -139,6 +148,12 @@ class FetchDirected : public Queued
      * @param addr Address to add to the FTQ
      */
     void addToFTQ(Addr addr);
+    
+    /**
+     * Notify the prefetcher of a cache eviction
+     * @param addr Address that was evicted from the cache
+     */
+    void notifyCacheEviction(Addr addr);
 
     /**
      * Check if an address is in the prefetch buffer

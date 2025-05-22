@@ -2,7 +2,7 @@
 
 ## Overview
 
-Fetch Directed Instruction Prefetching (FDIP) is a technique that uses branch predictor results to guide instruction prefetching. This implementation uses the TAGE branch predictor to predict future instruction addresses and prefetch them into the cache.
+Fetch Directed Instruction Prefetching (FDIP) is a technique that uses branch predictor results to guide instruction prefetching. This implementation uses the TAGE branch predictor to predict future instruction addresses and prefetch them into the L1 instruction cache.
 
 ## Features
 
@@ -20,7 +20,7 @@ The FDIP prefetcher works by:
 
 1. Using the branch predictor to predict future branch targets
 2. Tracking prediction confidence to filter out low-quality predictions
-3. Prefetching cache lines containing those targets
+3. Prefetching cache lines containing those targets into the L1 instruction cache
 4. Tracking prefetched addresses to avoid redundant prefetches
 5. Handling misprediction cases through a notification mechanism
 6. Maintaining branch prediction streams to adapt to program behavior

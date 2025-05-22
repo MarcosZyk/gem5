@@ -198,18 +198,20 @@ if options.prefetcher == "fdip":
         tage_params = TAGE()
         tournament_params = TournamentBP()
     
-    # Use FDIP prefetcher
-    system.l2cache.prefetcher = FDIPrefetcher(
-        degree=options.prefetch_degree,
-        max_lookahead=options.max_lookahead,
-        use_tage=True,
-        thread_id=0,
-        confidence_threshold=options.confidence_threshold,
-        max_streams=options.max_streams,
-        create_dedicated_predictor=options.dedicated_predictor,
-        tage_params=tage_params,
-        tournament_params=tournament_params
-    )
+    # Use FDIP prefetcher in the L1 instruction cache
+    for cpu in system.cpu:
+        # Add FDIP prefetcher to each CPU's L1 instruction cache
+        cpu.icache.prefetcher = FDIPrefetcher(
+            degree=options.prefetch_degree,
+            max_lookahead=options.max_lookahead,
+            use_tage=True,
+            thread_id=0,
+            confidence_threshold=options.confidence_threshold,
+            max_streams=options.max_streams,
+            create_dedicated_predictor=options.dedicated_predictor,
+            tage_params=tage_params,
+            tournament_params=tournament_params
+        )
     
     # If not using a dedicated predictor, connect to the CPU's branch predictor
     if not options.dedicated_predictor:
@@ -217,8 +219,8 @@ if options.prefetcher == "fdip":
         # This will be done in a callback function
         def connectBranchPredictor(root):
             for cpu in root.system.cpu:
-                if hasattr(root.system.l2cache, 'prefetcher'):
-                    root.system.l2cache.prefetcher.setBranchPredictor(cpu.getBranchPredictor())
+                if hasattr(cpu.icache, 'prefetcher'):
+                    cpu.icache.prefetcher.setBranchPredictor(cpu.getBranchPredictor())
         
         # Register the callback to be called after instantiation
         m5.registerCallback(connectBranchPredictor)
@@ -226,13 +228,13 @@ if options.prefetcher == "fdip":
     # Register callbacks for branch misprediction notifications
     def notifyBranchMisprediction(pc, target, confidence=0, cpu_num=0):
         """Notify the prefetcher about a branch misprediction"""
-        if hasattr(system.l2cache, 'prefetcher'):
-            system.l2cache.prefetcher.notifyBranchMisprediction(pc, target, confidence)
+        if cpu_num < len(system.cpu) and hasattr(system.cpu[cpu_num].icache, 'prefetcher'):
+            system.cpu[cpu_num].icache.prefetcher.notifyBranchMisprediction(pc, target, confidence)
     
     def notifyCorrectPrediction(pc, target, confidence=0, cpu_num=0):
         """Notify the prefetcher about a correct branch prediction"""
-        if hasattr(system.l2cache, 'prefetcher'):
-            system.l2cache.prefetcher.notifyCorrectPrediction(pc, target, confidence)
+        if cpu_num < len(system.cpu) and hasattr(system.cpu[cpu_num].icache, 'prefetcher'):
+            system.cpu[cpu_num].icache.prefetcher.notifyCorrectPrediction(pc, target, confidence)
     
     # Hook these callbacks into the CPU's branch predictor
     for cpu in system.cpu:
@@ -240,11 +242,13 @@ if options.prefetcher == "fdip":
         cpu.branchPred.correctPredictHandler = notifyCorrectPrediction
     
 elif options.prefetcher == "stride":
-    # Use stride prefetcher
-    system.l2cache.prefetcher = StridePrefetcher(degree=options.prefetch_degree)
+    # Use stride prefetcher in the L1 instruction cache
+    for cpu in system.cpu:
+        cpu.icache.prefetcher = StridePrefetcher(degree=options.prefetch_degree)
 else:
     # No prefetcher
-    system.l2cache.prefetcher = NULL
+    for cpu in system.cpu:
+        cpu.icache.prefetcher = NULL
 
 # Create a memory bus
 system.membus = SystemXBar()

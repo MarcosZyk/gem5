@@ -109,6 +109,8 @@ parser.add_argument("--ftq-size", type=int, default=16,
                     help="Maximum size of the FTQ (Fetch Target Queue)")
 parser.add_argument("--prefetch-buffer-size", type=int, default=16,
                     help="Maximum size of the Prefetch Buffer")
+parser.add_argument("--branch-predictor-lookahead", type=int, default=32,
+                    help="How far ahead the branch predictor should work compared to the prefetcher")
 
 options = parser.parse_args()
 
@@ -219,7 +221,8 @@ if options.prefetcher == "fdip":
             tournament_params=tournament_params,
             piq_size=options.piq_size,
             ftq_size=options.ftq_size,
-            prefetch_buffer_size=options.prefetch_buffer_size
+            prefetch_buffer_size=options.prefetch_buffer_size,
+            branch_predictor_lookahead=options.branch_predictor_lookahead
         )
     
     # If not using a dedicated predictor, connect to the CPU's branch predictor

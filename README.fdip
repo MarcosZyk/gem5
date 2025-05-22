@@ -1,0 +1,62 @@
+# Fetch Directed Instruction Prefetching (FDIP)
+
+## Overview
+
+Fetch Directed Instruction Prefetching (FDIP) is a prefetching technique that uses branch prediction to guide instruction prefetching. The prefetcher works by predicting future branch targets and prefetching instructions along the predicted path.
+
+## Architecture
+
+The FDIP implementation consists of the following components:
+
+1. **Branch Predictor**: Predicts branch targets ahead of the prefetcher
+2. **PIQ (Program Information Queue)**: Stores information about program execution for prefetching
+3. **FTQ (Fetch Target Queue)**: Stores predicted branch targets from the branch predictor
+4. **Prefetch Enqueue**: Filters and enqueues prefetch candidates
+5. **L2 Cache Prefetch**: Prefetches instructions into the L2 cache
+6. **Prefetch Buffer**: Stores prefetched instructions for the instruction fetch unit
+
+## Key Features
+
+- Branch predictor works ahead of the prefetcher to provide early branch predictions
+- Configurable branch predictor lookahead to control how far ahead the branch predictor works
+- Filtration mechanisms to reduce unnecessary prefetches
+- Support for different branch predictor types (TAGE, Tournament)
+- Configurable queue sizes for PIQ, FTQ, and Prefetch Buffer
+
+## Parameters
+
+- `degree`: Number of cache lines to prefetch
+- `use_tage`: Whether to use the TAGE branch predictor
+- `thread_id`: Thread ID for the branch predictor
+- `line_size`: Cache line size
+- `max_lookahead`: Maximum number of branches to look ahead
+- `cleanup_interval`: Interval for cleaning up old prefetched addresses
+- `confidence_threshold`: Minimum confidence threshold for branch predictions
+- `piq_size`: Maximum size of the PIQ
+- `ftq_size`: Maximum size of the FTQ
+- `prefetch_buffer_size`: Maximum size of the Prefetch Buffer
+- `branch_predictor_lookahead`: How far ahead the branch predictor should work compared to the prefetcher
+
+## Usage
+
+To use FDIP in your gem5 simulation, add the following to your configuration script:
+
+```python
+system.cpu.icache.prefetcher = FDIP(
+    degree=2,
+    use_tage=True,
+    thread_id=0,
+    line_size=64,
+    max_lookahead=16,
+    cleanup_interval=1000,
+    confidence_threshold=50,
+    piq_size=16,
+    ftq_size=16,
+    prefetch_buffer_size=16,
+    branch_predictor_lookahead=32
+)
+```
+
+## Example
+
+See `configs/example/fdip_example.py` for a complete example of how to use FDIP in a gem5 simulation.

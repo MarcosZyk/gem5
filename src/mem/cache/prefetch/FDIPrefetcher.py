@@ -60,3 +60,6 @@ class FDIPrefetcher(QueuedPrefetcher):
     
     # Maximum number of branch streams to track
     max_streams = Param.Unsigned(16, "Maximum number of branch streams to track")
+    
+    # How far ahead the branch predictor should work compared to the prefetcher
+    branch_predictor_lookahead = Param.Unsigned(32, "How far ahead the branch predictor should work compared to the prefetcher")

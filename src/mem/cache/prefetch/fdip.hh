@@ -101,6 +101,12 @@ class FDIP : public Queued
 
     /** Maximum size of the Prefetch Buffer */
     const unsigned prefetchBufferSize;
+    
+    /** Last PC used for ahead-of-time branch prediction */
+    Addr lastPredictionPC;
+    
+    /** How far ahead the branch predictor should work compared to the prefetcher */
+    const unsigned branchPredictorLookahead;
 
     /** 
      * Program Information Queue (PIQ)
@@ -198,6 +204,15 @@ class FDIP : public Queued
      */
     void processPrefetchBuffer(const CacheAccessor &cache, std::vector<AddrPriority> &addresses);
 
+    /**
+     * Run branch prediction ahead of time to populate the FTQ
+     * This method should be called periodically to ensure the branch predictor
+     * works ahead of the prefetcher
+     * @param pc Current program counter
+     * @param numBranches Number of branches to predict ahead
+     */
+    void runAheadBranchPrediction(Addr pc, unsigned numBranches);
+    
     /**
      * Predict the next N branch targets using the branch predictor
      * @param pc Current program counter

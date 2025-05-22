@@ -44,7 +44,9 @@ FDIP::FDIP(const FDIPrefetcherParams &p)
       confidenceThreshold(p.confidence_threshold),
       piqSize(p.piq_size),
       ftqSize(p.ftq_size),
-      prefetchBufferSize(p.prefetch_buffer_size)
+      prefetchBufferSize(p.prefetch_buffer_size),
+      lastPredictionPC(0),
+      branchPredictorLookahead(p.branch_predictor_lookahead)
 {
     // Ensure parameters are valid
     assert(degree > 0);
@@ -170,6 +172,71 @@ FDIP::addToPrefetchBuffer(Addr addr, unsigned priority)
             addr, priority);
 }
 
+void
+FDIP::runAheadBranchPrediction(Addr pc, unsigned numBranches)
+{
+    if (!branchPred) {
+        DPRINTF(FDIP, "Branch predictor not set, cannot run ahead prediction\n");
+        return;
+    }
+    
+    DPRINTF(FDIP, "Running ahead branch prediction from PC 0x%x for %d branches\n", 
+            pc, numBranches);
+    
+    // Update the last prediction PC
+    lastPredictionPC = pc;
+    
+    // No valid stream, predict new targets
+    Addr currentPC = pc;
+    
+    // Create a temporary PCState for branch prediction
+    std::unique_ptr<PCStateBase> pcState(branchPred->getInstPC(currentPC));
+    
+    // Predict up to numBranches branches
+    for (unsigned i = 0; i < numBranches; i++) {
+        void *bp_history = nullptr;
+        
+        // Check confidence for this prediction
+        unsigned confidence = getPredictionConfidence(currentPC);
+        if (confidence < confidenceThreshold) {
+            DPRINTF(FDIP, "Prediction confidence %d below threshold %d for PC 0x%x\n",
+                    confidence, confidenceThreshold, currentPC);
+            break;
+        }
+        
+        // Use the branch predictor to predict the next branch
+        bool taken = branchPred->lookup(threadId, currentPC, bp_history);
+        
+        if (taken) {
+            // Get the predicted target
+            Addr target = branchPred->getTargetAddr(currentPC, bp_history);
+            
+            // Add to FTQ
+            addToFTQ(currentPC, target, true, confidence);
+            
+            // Add to PIQ for L2 cache prefetching
+            addToPIQ(currentPC, target, confidence);
+            
+            // Update the current PC to the predicted target
+            currentPC = target;
+        } else {
+            // If not taken, assume sequential execution (next instruction)
+            // For simplicity, we'll just increment by 4 (typical instruction size)
+            Addr nextPC = currentPC + 4;
+            
+            // Add to FTQ
+            addToFTQ(currentPC, nextPC, false, confidence);
+            
+            currentPC = nextPC;
+        }
+        
+        // Clean up branch predictor history
+        if (bp_history) {
+            branchPred->squash(threadId, bp_history);
+        }
+    }
+}
+
 std::vector<Addr>
 FDIP::predictBranchTargets(Addr pc, unsigned numBranches)
 {
@@ -206,18 +273,12 @@ FDIP::predictBranchTargets(Addr pc, unsigned numBranches)
             Addr target = branchPred->getTargetAddr(currentPC, bp_history);
             targets.push_back(target);
             
-            // Add to FTQ
-            addToFTQ(currentPC, target, true, confidence);
-            
             // Update the current PC to the predicted target
             currentPC = target;
         } else {
             // If not taken, assume sequential execution (next instruction)
             // For simplicity, we'll just increment by 4 (typical instruction size)
             Addr nextPC = currentPC + 4;
-            
-            // Add to FTQ
-            addToFTQ(currentPC, nextPC, false, confidence);
             
             currentPC = nextPC;
         }
@@ -574,7 +635,14 @@ FDIP::calculatePrefetch(const PrefetchInfo &pfi,
         return;
     }
     
-    // Predict branch targets and populate FTQ
+    // First, run ahead branch prediction to ensure the branch predictor works ahead of the prefetcher
+    // Only run if we're at a new PC or if we're far from the last prediction PC
+    if (lastPredictionPC == 0 || std::abs(static_cast<int64_t>(pc - lastPredictionPC)) > 16) {
+        DPRINTF(FDIP, "Running ahead branch prediction from PC 0x%x\n", pc);
+        runAheadBranchPrediction(pc, branchPredictorLookahead);
+    }
+    
+    // Get targets for the current PC (this doesn't modify the FTQ, just returns predictions)
     std::vector<Addr> targets = predictBranchTargets(pc, maxLookAhead);
     
     DPRINTF(FDIP, "FDIP for PC 0x%x predicted %d targets\n", pc, targets.size());

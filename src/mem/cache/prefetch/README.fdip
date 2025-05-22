@@ -1,0 +1,58 @@
+# Fetch Directed Instruction Prefetching (FDIP)
+
+## Overview
+
+Fetch Directed Instruction Prefetching (FDIP) is a technique that uses branch predictor results to guide instruction prefetching. This implementation uses the TAGE branch predictor to predict future instruction addresses and prefetch them into the cache.
+
+## Features
+
+- Uses branch predictor results (specifically TAGE predictor) to guide prefetching
+- Handles miss prediction cases by falling back to next-line prefetching
+- Supports single thread execution
+- Can be compared with next-line instruction prefetching
+
+## Implementation Details
+
+The FDIP prefetcher works by:
+
+1. Using the branch predictor to predict future branch targets
+2. Prefetching cache lines containing those targets
+3. Tracking prefetched addresses to avoid redundant prefetches
+4. Handling misprediction cases by falling back to next-line prefetching
+
+## Usage
+
+To use the FDIP prefetcher, you can use the provided example script:
+
+```bash
+./build/X86/gem5.opt configs/example/fdip_example.py --cmd=/path/to/benchmark
+```
+
+### Configuration Options
+
+- `--prefetcher`: Type of prefetcher to use (fdip, stride, none)
+- `--prefetch-degree`: Number of blocks to prefetch
+- `--max-lookahead`: Maximum number of instructions to look ahead for FDIP
+
+## Comparison with Next-Line Prefetching
+
+The FDIP prefetcher can be compared with next-line prefetching by running:
+
+```bash
+# Run with FDIP
+./build/X86/gem5.opt configs/example/fdip_example.py --cmd=/path/to/benchmark --prefetcher=fdip
+
+# Run with stride prefetcher (next-line)
+./build/X86/gem5.opt configs/example/fdip_example.py --cmd=/path/to/benchmark --prefetcher=stride
+
+# Run with no prefetching
+./build/X86/gem5.opt configs/example/fdip_example.py --cmd=/path/to/benchmark --prefetcher=none
+```
+
+## Debugging
+
+To enable debug output for the FDIP prefetcher, use:
+
+```bash
+./build/X86/gem5.opt --debug-flags=FDIP configs/example/fdip_example.py --cmd=/path/to/benchmark
+```

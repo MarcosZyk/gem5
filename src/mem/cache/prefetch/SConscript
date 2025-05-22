@@ -38,6 +38,8 @@ SimObject('Prefetcher.py', sim_objects=[
     'IrregularStreamBufferPrefetcher', 'SlimAMPMPrefetcher',
     'BOPPrefetcher', 'SBOOEPrefetcher', 'STeMSPrefetcher', 'PIFPrefetcher'])
 
+SimObject('FDIPrefetcher.py', sim_objects=['FDIPrefetcher'])
+
 Source('access_map_pattern_matching.cc')
 Source('base.cc')
 Source('multi.cc')
@@ -55,3 +57,4 @@ Source('slim_ampm.cc')
 Source('spatio_temporal_memory_streaming.cc')
 Source('stride.cc')
 Source('tagged.cc')
+Source('fdip.cc')

@@ -414,6 +414,9 @@ class Fetch
 
     /** BPredUnit. */
     branch_prediction::BPredUnit *branchPred;
+    
+    /** Make CPU class a friend to access branchPred */
+    friend class CPU;
 
     std::unique_ptr<PCStateBase> pc[MaxThreads];
 

@@ -103,6 +103,12 @@ parser.add_argument("--max-streams", type=int, default=16,
                     help="Maximum number of branch streams to track")
 parser.add_argument("--dedicated-predictor", action="store_true",
                     help="Use a dedicated branch predictor for FDIP")
+parser.add_argument("--piq-size", type=int, default=32,
+                    help="Maximum size of the PIQ (Program Information Queue)")
+parser.add_argument("--ftq-size", type=int, default=16,
+                    help="Maximum size of the FTQ (Fetch Target Queue)")
+parser.add_argument("--prefetch-buffer-size", type=int, default=16,
+                    help="Maximum size of the Prefetch Buffer")
 
 options = parser.parse_args()
 
@@ -210,7 +216,10 @@ if options.prefetcher == "fdip":
             max_streams=options.max_streams,
             create_dedicated_predictor=options.dedicated_predictor,
             tage_params=tage_params,
-            tournament_params=tournament_params
+            tournament_params=tournament_params,
+            piq_size=options.piq_size,
+            ftq_size=options.ftq_size,
+            prefetch_buffer_size=options.prefetch_buffer_size
         )
     
     # If not using a dedicated predictor, connect to the CPU's branch predictor

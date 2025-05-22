@@ -23,6 +23,8 @@
 #include <unordered_map>
 #include <vector>
 #include <memory>
+#include <queue>
+#include <deque>
 
 #include "base/types.hh"
 #include "cpu/pred/bpred_unit.hh"
@@ -40,8 +42,8 @@ namespace prefetch
  * Fetch Directed Instruction Prefetching (FDIP) implementation.
  * 
  * This prefetcher uses branch predictor results to guide instruction prefetching.
- * It can either use a dedicated branch predictor or receive branch prediction
- * information from the CPU's branch predictor.
+ * It implements the FDIP architecture with PIQ, FTQ, Prefetch Enqueue, 
+ * L2 Cache Prefetch, and Prefetch Buffer components.
  */
 class FDIP : public Queued
 {
@@ -91,25 +93,110 @@ class FDIP : public Queued
     /** Minimum confidence threshold to issue prefetches (0-100) */
     const unsigned confidenceThreshold;
 
+    /** Maximum size of the PIQ (Program Information Queue) */
+    const unsigned piqSize;
+
+    /** Maximum size of the FTQ (Fetch Target Queue) */
+    const unsigned ftqSize;
+
+    /** Maximum size of the Prefetch Buffer */
+    const unsigned prefetchBufferSize;
+
     /** 
-     * Structure to track branch prediction streams
-     * Used to handle misprediction cases
+     * Program Information Queue (PIQ)
+     * Stores information about program execution for prefetching
      */
-    struct BranchStream {
-        Addr startPC;
-        std::vector<Addr> targets;
-        Tick lastUsed;
-        bool valid;
-
-        BranchStream() : startPC(0), lastUsed(0), valid(false) {}
-        BranchStream(Addr pc) : startPC(pc), lastUsed(0), valid(true) {}
+    struct PIQEntry {
+        Addr pc;           // Program counter
+        Addr targetAddr;   // Target address
+        unsigned confidence; // Prediction confidence
+        Tick timestamp;    // When this entry was added
+        
+        PIQEntry(Addr _pc, Addr _target, unsigned _conf, Tick _time)
+            : pc(_pc), targetAddr(_target), confidence(_conf), timestamp(_time) {}
     };
+    
+    /** PIQ implementation as a circular buffer */
+    std::deque<PIQEntry> piq;
 
-    /** Maximum number of branch streams to track */
-    const unsigned maxStreams;
+    /**
+     * Fetch Target Queue (FTQ)
+     * Stores branch prediction targets from the branch predictor
+     */
+    struct FTQEntry {
+        Addr pc;           // Program counter
+        Addr targetAddr;   // Target address
+        bool taken;        // Whether the branch was predicted taken
+        unsigned confidence; // Prediction confidence
+        Tick timestamp;    // When this entry was added
+        
+        FTQEntry(Addr _pc, Addr _target, bool _taken, unsigned _conf, Tick _time)
+            : pc(_pc), targetAddr(_target), taken(_taken), confidence(_conf), timestamp(_time) {}
+    };
+    
+    /** FTQ implementation as a circular buffer */
+    std::deque<FTQEntry> ftq;
 
-    /** Branch prediction streams */
-    std::vector<BranchStream> branchStreams;
+    /**
+     * Prefetch Buffer
+     * Stores prefetched cache lines before they are consumed by instruction fetch
+     */
+    struct PrefetchBufferEntry {
+        Addr addr;         // Prefetched address
+        Tick timestamp;    // When this entry was added
+        unsigned priority; // Priority of this prefetch (lower is higher priority)
+        
+        PrefetchBufferEntry(Addr _addr, Tick _time, unsigned _prio)
+            : addr(_addr), timestamp(_time), priority(_prio) {}
+    };
+    
+    /** Prefetch Buffer implementation as a priority queue */
+    std::vector<PrefetchBufferEntry> prefetchBuffer;
+
+    /**
+     * Add an entry to the PIQ
+     * @param pc Program counter
+     * @param targetAddr Target address
+     * @param confidence Prediction confidence
+     */
+    void addToPIQ(Addr pc, Addr targetAddr, unsigned confidence);
+
+    /**
+     * Add an entry to the FTQ
+     * @param pc Program counter
+     * @param targetAddr Target address
+     * @param taken Whether the branch was predicted taken
+     * @param confidence Prediction confidence
+     */
+    void addToFTQ(Addr pc, Addr targetAddr, bool taken, unsigned confidence);
+
+    /**
+     * Add an entry to the Prefetch Buffer
+     * @param addr Address to prefetch
+     * @param priority Priority of this prefetch (lower is higher priority)
+     */
+    void addToPrefetchBuffer(Addr addr, unsigned priority);
+
+    /**
+     * Process the PIQ to generate prefetches for the L2 cache
+     * @param cache Cache accessor to check for prefetch hits
+     * @param addresses Vector to store the generated prefetch addresses
+     */
+    void processPIQ(const CacheAccessor &cache, std::vector<AddrPriority> &addresses);
+
+    /**
+     * Process the FTQ to generate prefetch candidates for the Prefetch Enqueue
+     * @param cache Cache accessor to check for prefetch hits
+     * @param addresses Vector to store the generated prefetch addresses
+     */
+    void processFTQ(const CacheAccessor &cache, std::vector<AddrPriority> &addresses);
+
+    /**
+     * Process the Prefetch Buffer to feed the Instruction Fetch
+     * @param cache Cache accessor to check for prefetch hits
+     * @param addresses Vector to store the generated prefetch addresses
+     */
+    void processPrefetchBuffer(const CacheAccessor &cache, std::vector<AddrPriority> &addresses);
 
     /**
      * Predict the next N branch targets using the branch predictor
@@ -146,18 +233,13 @@ class FDIP : public Queued
     unsigned getPredictionConfidence(Addr pc);
 
     /**
-     * Find or create a branch stream for a given PC
-     * @param pc Program counter
-     * @return Pointer to the branch stream
+     * Apply filtration mechanisms to prefetch candidates
+     * @param candidates Vector of prefetch candidates
+     * @param cache Cache accessor to check for prefetch hits
+     * @return Vector of filtered prefetch candidates
      */
-    BranchStream* findOrCreateStream(Addr pc);
-
-    /**
-     * Update branch stream with actual execution results
-     * @param pc Program counter
-     * @param actualTarget Actual branch target
-     */
-    void updateBranchStream(Addr pc, Addr actualTarget);
+    std::vector<Addr> applyFiltration(const std::vector<Addr> &candidates, 
+                                     const CacheAccessor &cache);
 
   public:
     FDIP(const FDIPrefetcherParams &p);

@@ -36,3 +36,27 @@ class FDIPrefetcher(QueuedPrefetcher):
     
     # Cleanup interval for the prefetched addresses map
     cleanup_interval = Param.Tick(1000000, "Cleanup interval for the prefetched addresses map")
+    
+    # Minimum confidence threshold for branch predictions (0-100)
+    confidence_threshold = Param.Unsigned(50, "Minimum confidence threshold for branch predictions (0-100)")
+    
+    # Whether to create a dedicated branch predictor for FDIP
+    create_dedicated_predictor = Param.Bool(False, "Whether to create a dedicated branch predictor for FDIP")
+    
+    # TAGE branch predictor parameters (used if create_dedicated_predictor is True and use_tage is True)
+    tage_params = Param.TAGE(NULL, "TAGE branch predictor parameters")
+    
+    # Tournament branch predictor parameters (used if create_dedicated_predictor is True and use_tage is False)
+    tournament_params = Param.BranchPredictor(NULL, "Tournament branch predictor parameters")
+    
+    # Maximum size of the PIQ (Program Information Queue)
+    piq_size = Param.Unsigned(32, "Maximum size of the PIQ (Program Information Queue)")
+    
+    # Maximum size of the FTQ (Fetch Target Queue)
+    ftq_size = Param.Unsigned(16, "Maximum size of the FTQ (Fetch Target Queue)")
+    
+    # Maximum size of the Prefetch Buffer
+    prefetch_buffer_size = Param.Unsigned(16, "Maximum size of the Prefetch Buffer")
+    
+    # Maximum number of branch streams to track
+    max_streams = Param.Unsigned(16, "Maximum number of branch streams to track")

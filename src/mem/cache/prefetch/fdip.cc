@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <functional>
 
 #include "arch/generic/pcstate.hh"
 #include "base/logging.hh"
@@ -41,17 +42,18 @@ FDIP::FDIP(const FDIPrefetcherParams &p)
       cleanupInterval(p.cleanup_interval),
       lastCleanupTick(0),
       confidenceThreshold(p.confidence_threshold),
-      maxStreams(p.max_streams)
+      piqSize(p.piq_size),
+      ftqSize(p.ftq_size),
+      prefetchBufferSize(p.prefetch_buffer_size)
 {
     // Ensure parameters are valid
     assert(degree > 0);
     assert(lineSize > 0);
     assert(maxLookAhead > 0);
     assert(confidenceThreshold <= 100);
-    assert(maxStreams > 0);
-    
-    // Initialize branch streams
-    branchStreams.resize(maxStreams);
+    assert(piqSize > 0);
+    assert(ftqSize > 0);
+    assert(prefetchBufferSize > 0);
     
     // Create a dedicated branch predictor if requested
     if (p.create_dedicated_predictor) {
@@ -111,6 +113,63 @@ FDIP::setBranchPredictor(branch_prediction::BPredUnit *bp)
     }
 }
 
+void
+FDIP::addToPIQ(Addr pc, Addr targetAddr, unsigned confidence)
+{
+    // Create a new PIQ entry
+    PIQEntry entry(pc, targetAddr, confidence, curTick());
+    
+    // Add to the PIQ, maintaining size limit
+    piq.push_back(entry);
+    if (piq.size() > piqSize) {
+        piq.pop_front();
+    }
+    
+    DPRINTF(FDIP, "Added to PIQ: PC 0x%x, target 0x%x, confidence %u\n",
+            pc, targetAddr, confidence);
+}
+
+void
+FDIP::addToFTQ(Addr pc, Addr targetAddr, bool taken, unsigned confidence)
+{
+    // Create a new FTQ entry
+    FTQEntry entry(pc, targetAddr, taken, confidence, curTick());
+    
+    // Add to the FTQ, maintaining size limit
+    ftq.push_back(entry);
+    if (ftq.size() > ftqSize) {
+        ftq.pop_front();
+    }
+    
+    DPRINTF(FDIP, "Added to FTQ: PC 0x%x, target 0x%x, taken %d, confidence %u\n",
+            pc, targetAddr, taken, confidence);
+}
+
+void
+FDIP::addToPrefetchBuffer(Addr addr, unsigned priority)
+{
+    // Create a new prefetch buffer entry
+    PrefetchBufferEntry entry(addr, curTick(), priority);
+    
+    // Add to the prefetch buffer
+    prefetchBuffer.push_back(entry);
+    
+    // Sort by priority (lower value = higher priority)
+    std::sort(prefetchBuffer.begin(), prefetchBuffer.end(),
+              [](const PrefetchBufferEntry &a, const PrefetchBufferEntry &b) {
+                  return a.priority < b.priority;
+              });
+    
+    // Maintain size limit
+    if (prefetchBuffer.size() > prefetchBufferSize) {
+        // Remove the lowest priority entry (which will be at the end after sorting)
+        prefetchBuffer.pop_back();
+    }
+    
+    DPRINTF(FDIP, "Added to Prefetch Buffer: addr 0x%x, priority %u\n",
+            addr, priority);
+}
+
 std::vector<Addr>
 FDIP::predictBranchTargets(Addr pc, unsigned numBranches)
 {
@@ -119,15 +178,6 @@ FDIP::predictBranchTargets(Addr pc, unsigned numBranches)
     if (!branchPred) {
         DPRINTF(FDIP, "Branch predictor not set, cannot predict targets\n");
         return targets;
-    }
-    
-    // First check if we have a stream for this PC
-    BranchStream* stream = findOrCreateStream(pc);
-    if (stream->valid && !stream->targets.empty()) {
-        // Use the existing stream
-        DPRINTF(FDIP, "Using existing branch stream for PC 0x%x\n", pc);
-        stream->lastUsed = curTick();
-        return stream->targets;
     }
     
     // No valid stream, predict new targets
@@ -156,25 +206,26 @@ FDIP::predictBranchTargets(Addr pc, unsigned numBranches)
             Addr target = branchPred->getTargetAddr(currentPC, bp_history);
             targets.push_back(target);
             
+            // Add to FTQ
+            addToFTQ(currentPC, target, true, confidence);
+            
             // Update the current PC to the predicted target
             currentPC = target;
         } else {
             // If not taken, assume sequential execution (next instruction)
             // For simplicity, we'll just increment by 4 (typical instruction size)
-            currentPC += 4;
+            Addr nextPC = currentPC + 4;
+            
+            // Add to FTQ
+            addToFTQ(currentPC, nextPC, false, confidence);
+            
+            currentPC = nextPC;
         }
         
         // Clean up branch predictor history
         if (bp_history) {
             branchPred->squash(threadId, bp_history);
         }
-    }
-    
-    // Update the stream with the new targets
-    if (!targets.empty()) {
-        stream->targets = targets;
-        stream->lastUsed = curTick();
-        stream->valid = true;
     }
     
     return targets;
@@ -212,10 +263,23 @@ FDIP::cleanupPrefetchedAddresses(Tick currentTick)
         }
     }
     
-    // Also clean up old branch streams
-    for (auto& stream : branchStreams) {
-        if (stream.valid && currentTick - stream.lastUsed > cleanupInterval) {
-            stream.valid = false;
+    // Also clean up old PIQ entries
+    while (!piq.empty() && currentTick - piq.front().timestamp > cleanupInterval) {
+        piq.pop_front();
+    }
+    
+    // Clean up old FTQ entries
+    while (!ftq.empty() && currentTick - ftq.front().timestamp > cleanupInterval) {
+        ftq.pop_front();
+    }
+    
+    // Clean up old prefetch buffer entries
+    auto bufferIt = prefetchBuffer.begin();
+    while (bufferIt != prefetchBuffer.end()) {
+        if (currentTick - bufferIt->timestamp > cleanupInterval) {
+            bufferIt = prefetchBuffer.erase(bufferIt);
+        } else {
+            ++bufferIt;
         }
     }
 }
@@ -242,67 +306,165 @@ FDIP::getPredictionConfidence(Addr pc)
     return (correct * 100) / total;
 }
 
-FDIP::BranchStream*
-FDIP::findOrCreateStream(Addr pc)
+std::vector<Addr>
+FDIP::applyFiltration(const std::vector<Addr> &candidates, const CacheAccessor &cache)
 {
-    // First look for an existing stream with this PC
-    for (auto& stream : branchStreams) {
-        if (stream.valid && stream.startPC == pc) {
-            return &stream;
-        }
-    }
+    std::vector<Addr> filtered;
     
-    // No existing stream, find an invalid one or the oldest one
-    BranchStream* oldestStream = &branchStreams[0];
-    for (auto& stream : branchStreams) {
-        if (!stream.valid) {
-            // Found an invalid stream, use it
-            stream.startPC = pc;
-            stream.targets.clear();
-            stream.lastUsed = curTick();
-            stream.valid = true;
-            return &stream;
+    for (Addr addr : candidates) {
+        // Convert to cache line address
+        Addr lineAddr = blockAddress(addr);
+        
+        // Apply filtration mechanisms:
+        // 1. Skip if already in cache
+        // 2. Skip if already in miss queue
+        // 3. Skip if recently prefetched
+        // 4. Skip if confidence is too low
+        
+        // Check if this line is already in the cache or recently prefetched
+        if (cache.inCache(lineAddr, false) || 
+            cache.inMissQueue(lineAddr, false) ||
+            isRecentlyPrefetched(lineAddr)) {
+            continue;
         }
         
-        if (stream.lastUsed < oldestStream->lastUsed) {
-            oldestStream = &stream;
-        }
+        // Add to filtered list
+        filtered.push_back(lineAddr);
     }
     
-    // All streams are valid, replace the oldest one
-    oldestStream->startPC = pc;
-    oldestStream->targets.clear();
-    oldestStream->lastUsed = curTick();
-    oldestStream->valid = true;
-    
-    return oldestStream;
+    return filtered;
 }
 
 void
-FDIP::updateBranchStream(Addr pc, Addr actualTarget)
+FDIP::processPIQ(const CacheAccessor &cache, std::vector<AddrPriority> &addresses)
 {
-    // Find the stream for this PC
-    for (auto& stream : branchStreams) {
-        if (stream.valid && stream.startPC == pc) {
-            // Update the stream with the actual target
-            if (!stream.targets.empty()) {
-                // Replace the first target with the actual target
-                stream.targets[0] = actualTarget;
-            } else {
-                // Add the actual target
-                stream.targets.push_back(actualTarget);
-            }
-            stream.lastUsed = curTick();
-            return;
+    DPRINTF(FDIP, "Processing PIQ with %d entries\n", piq.size());
+    
+    // Process PIQ entries to generate L2 cache prefetches
+    std::vector<Addr> candidates;
+    
+    for (const auto &entry : piq) {
+        // Skip low confidence entries
+        if (entry.confidence < confidenceThreshold) {
+            continue;
+        }
+        
+        // Add target address to candidates
+        candidates.push_back(entry.targetAddr);
+        
+        // Also add a few sequential lines after the target
+        for (unsigned i = 1; i <= degree; i++) {
+            candidates.push_back(entry.targetAddr + i * lineSize);
         }
     }
     
-    // No existing stream, create a new one
-    BranchStream* stream = findOrCreateStream(pc);
-    stream->targets.clear();
-    stream->targets.push_back(actualTarget);
-    stream->lastUsed = curTick();
-    stream->valid = true;
+    // Apply filtration mechanisms
+    std::vector<Addr> filtered = applyFiltration(candidates, cache);
+    
+    // Add filtered candidates to prefetch addresses
+    unsigned priority = 0;
+    for (Addr addr : filtered) {
+        // Add to prefetch addresses with priority
+        addresses.push_back(AddrPriority(addr, priority));
+        
+        // Mark as prefetched
+        markPrefetched(addr);
+        
+        // Add to prefetch buffer
+        addToPrefetchBuffer(addr, priority);
+        
+        DPRINTF(FDIP, "L2 Cache Prefetch from PIQ: 0x%x, priority %u\n", 
+                addr, priority);
+        
+        priority++;
+        
+        // Limit the number of prefetches
+        if (priority >= degree) {
+            break;
+        }
+    }
+}
+
+void
+FDIP::processFTQ(const CacheAccessor &cache, std::vector<AddrPriority> &addresses)
+{
+    DPRINTF(FDIP, "Processing FTQ with %d entries\n", ftq.size());
+    
+    // Process FTQ entries to generate prefetch candidates
+    std::vector<Addr> candidates;
+    
+    for (const auto &entry : ftq) {
+        // Skip low confidence entries
+        if (entry.confidence < confidenceThreshold) {
+            continue;
+        }
+        
+        // Add target address to candidates
+        candidates.push_back(entry.targetAddr);
+        
+        // For taken branches, also add a few sequential lines after the target
+        if (entry.taken) {
+            for (unsigned i = 1; i <= degree; i++) {
+                candidates.push_back(entry.targetAddr + i * lineSize);
+            }
+        }
+        
+        // Add to PIQ for L2 cache prefetching
+        addToPIQ(entry.pc, entry.targetAddr, entry.confidence);
+    }
+    
+    // Apply filtration mechanisms
+    std::vector<Addr> filtered = applyFiltration(candidates, cache);
+    
+    // Add filtered candidates to prefetch addresses
+    unsigned priority = 0;
+    for (Addr addr : filtered) {
+        // Add to prefetch addresses with priority
+        addresses.push_back(AddrPriority(addr, priority));
+        
+        // Mark as prefetched
+        markPrefetched(addr);
+        
+        DPRINTF(FDIP, "Prefetch from FTQ: 0x%x, priority %u\n", 
+                addr, priority);
+        
+        priority++;
+        
+        // Limit the number of prefetches
+        if (priority >= degree) {
+            break;
+        }
+    }
+}
+
+void
+FDIP::processPrefetchBuffer(const CacheAccessor &cache, std::vector<AddrPriority> &addresses)
+{
+    DPRINTF(FDIP, "Processing Prefetch Buffer with %d entries\n", prefetchBuffer.size());
+    
+    // Process prefetch buffer entries to feed instruction fetch
+    unsigned count = 0;
+    
+    for (const auto &entry : prefetchBuffer) {
+        // Skip if already in cache or miss queue
+        if (cache.inCache(entry.addr, false) || 
+            cache.inMissQueue(entry.addr, false)) {
+            continue;
+        }
+        
+        // Add to prefetch addresses with original priority
+        addresses.push_back(AddrPriority(entry.addr, entry.priority));
+        
+        DPRINTF(FDIP, "Prefetch from Buffer: 0x%x, priority %u\n", 
+                entry.addr, entry.priority);
+        
+        count++;
+        
+        // Limit the number of prefetches
+        if (count >= degree) {
+            break;
+        }
+    }
 }
 
 void
@@ -321,8 +483,11 @@ FDIP::notifyBranchMisprediction(Addr pc, Addr actualTarget, unsigned confidence)
         it->second.second++;
     }
     
-    // Update branch stream with actual target
-    updateBranchStream(pc, actualTarget);
+    // Add to FTQ with the actual target
+    addToFTQ(pc, actualTarget, true, confidence);
+    
+    // Add to PIQ for L2 cache prefetching
+    addToPIQ(pc, actualTarget, confidence);
 }
 
 void
@@ -341,6 +506,12 @@ FDIP::notifyCorrectPrediction(Addr pc, Addr target, unsigned confidence)
         it->second.first++;
         it->second.second++;
     }
+    
+    // Add to FTQ
+    addToFTQ(pc, target, true, confidence);
+    
+    // Add to PIQ for L2 cache prefetching
+    addToPIQ(pc, target, confidence);
 }
 
 void
@@ -348,7 +519,7 @@ FDIP::calculatePrefetch(const PrefetchInfo &pfi,
                        std::vector<AddrPriority> &addresses,
                        const CacheAccessor &cache)
 {
-    // Clean up old prefetched addresses
+    // Clean up old prefetched addresses and queue entries
     cleanupPrefetchedAddresses(curTick());
     
     // If we don't have a branch predictor, fall back to next-line prefetching
@@ -403,7 +574,7 @@ FDIP::calculatePrefetch(const PrefetchInfo &pfi,
         return;
     }
     
-    // Predict branch targets
+    // Predict branch targets and populate FTQ
     std::vector<Addr> targets = predictBranchTargets(pc, maxLookAhead);
     
     DPRINTF(FDIP, "FDIP for PC 0x%x predicted %d targets\n", pc, targets.size());
@@ -430,35 +601,18 @@ FDIP::calculatePrefetch(const PrefetchInfo &pfi,
         return;
     }
     
-    // Prefetch based on predicted targets
-    unsigned prefetched = 0;
+    // Process the PIQ to generate L2 cache prefetches
+    processPIQ(cache, addresses);
     
-    for (Addr target : targets) {
-        // Convert target address to cache line address
-        Addr target_line = blockAddress(target);
-        
-        // Check if this line is already in the cache or recently prefetched
-        if (cache.inCache(target_line, pfi.isSecure()) || 
-            cache.inMissQueue(target_line, pfi.isSecure()) ||
-            isRecentlyPrefetched(target_line)) {
-            continue;
-        }
-        
-        // Add to prefetch queue with decreasing priority
-        addresses.push_back(AddrPriority(target_line, prefetched));
-        markPrefetched(target_line);
-        
-        DPRINTF(FDIP, "FDIP prefetch: 0x%x (from target 0x%x)\n", 
-                target_line, target);
-        
-        prefetched++;
-        
-        // Stop if we've reached the degree limit
-        if (prefetched >= degree) {
-            break;
-        }
-    }
+    // Process the FTQ to generate prefetch candidates
+    processFTQ(cache, addresses);
+    
+    // Process the prefetch buffer to feed instruction fetch
+    processPrefetchBuffer(cache, addresses);
 }
+
+} // namespace prefetch
+} // namespace gem5
 
 } // namespace prefetch
 } // namespace gem5

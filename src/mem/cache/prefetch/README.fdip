@@ -2,28 +2,51 @@
 
 ## Overview
 
-Fetch Directed Instruction Prefetching (FDIP) is a technique that uses branch predictor results to guide instruction prefetching. This implementation uses the TAGE branch predictor to predict future instruction addresses and prefetch them into the L1 instruction cache.
+Fetch Directed Instruction Prefetching (FDIP) is a technique that uses branch predictor results to guide instruction prefetching. This implementation uses the branch predictor to predict future instruction addresses and prefetch them into the instruction cache.
+
+## Architecture
+
+The FDIP implementation follows the architecture shown in the diagram with the following components:
+
+1. **PIQ (Program Information Queue)**: Stores information about program execution for prefetching
+2. **FTQ (Fetch Target Queue)**: Stores branch prediction targets from the branch predictor
+3. **Prefetch Enqueue**: Contains filtration mechanisms to select prefetch candidates
+4. **L2 Cache Prefetch**: Prefetches instructions into the L2 cache
+5. **Prefetch Buffer**: Stores prefetched cache lines before they are consumed by instruction fetch
+6. **Branch Predictor**: Provides branch prediction information to guide prefetching
+7. **Instruction Fetch**: Consumes prefetched instructions from the Prefetch Buffer
+
+The data flow in the FDIP architecture is as follows:
+
+1. The Branch Predictor predicts branch targets and feeds them into the FTQ
+2. The FTQ provides prefetch candidates to the Prefetch Enqueue and Instruction Fetch
+3. The Prefetch Enqueue applies filtration mechanisms to select prefetch candidates
+4. The PIQ receives information from the Prefetch Enqueue and feeds the L2 Cache Prefetch
+5. The L2 Cache Prefetch prefetches instructions into the Prefetch Buffer
+6. The Prefetch Buffer feeds prefetched instructions to the Instruction Fetch
 
 ## Features
 
-- Uses branch predictor results (specifically TAGE predictor) to guide prefetching
+- Uses branch predictor results to guide prefetching
 - Handles misprediction cases through a dedicated notification mechanism
 - Supports single thread execution
 - Can be compared with next-line instruction prefetching
 - Provides confidence-based prefetching to avoid low-quality predictions
 - Supports both shared and dedicated branch predictors
 - Tracks branch prediction accuracy to improve prefetching quality
+- Implements PIQ, FTQ, and Prefetch Buffer components
+- Applies filtration mechanisms to select prefetch candidates
 
 ## Implementation Details
 
 The FDIP prefetcher works by:
 
 1. Using the branch predictor to predict future branch targets
-2. Tracking prediction confidence to filter out low-quality predictions
-3. Prefetching cache lines containing those targets into the L1 instruction cache
-4. Tracking prefetched addresses to avoid redundant prefetches
-5. Handling misprediction cases through a notification mechanism
-6. Maintaining branch prediction streams to adapt to program behavior
+2. Populating the FTQ with branch prediction targets
+3. Applying filtration mechanisms to select prefetch candidates
+4. Prefetching instructions into the L2 cache via the PIQ
+5. Storing prefetched instructions in the Prefetch Buffer
+6. Feeding prefetched instructions to the Instruction Fetch
 
 ### Branch Predictor Integration
 
@@ -38,15 +61,22 @@ The integration uses a notification system with callbacks for:
 
 These callbacks are automatically registered with the branch predictor during initialization.
 
-### Misprediction Handling
+### Filtration Mechanisms
 
-The implementation handles mispredictions through:
+The Prefetch Enqueue component applies several filtration mechanisms to select prefetch candidates:
 
-1. Notification callbacks from the CPU when a branch is mispredicted
-2. Tracking prediction accuracy for each branch PC
-3. Adjusting confidence thresholds based on prediction history
-4. Maintaining branch streams that can be updated with actual execution results
-5. Confidence-based filtering to avoid prefetching based on low-confidence predictions
+1. **Cache Presence Check**: Skip prefetching if the line is already in the cache
+2. **Miss Queue Check**: Skip prefetching if the line is already in the miss queue
+3. **Recent Prefetch Check**: Skip prefetching if the line was recently prefetched
+4. **Confidence Filtering**: Skip prefetching if the prediction confidence is below the threshold
+
+### PIQ, FTQ, and Prefetch Buffer
+
+The PIQ, FTQ, and Prefetch Buffer components are implemented as follows:
+
+- **PIQ**: A circular buffer that stores program information for L2 cache prefetching
+- **FTQ**: A circular buffer that stores branch prediction targets
+- **Prefetch Buffer**: A priority queue that stores prefetched cache lines
 
 ## Usage
 
@@ -62,7 +92,9 @@ To use the FDIP prefetcher, you can use the provided example script:
 - `--prefetch-degree`: Number of blocks to prefetch
 - `--max-lookahead`: Maximum number of instructions to look ahead for FDIP
 - `--confidence-threshold`: Minimum confidence threshold for FDIP (0-100)
-- `--max-streams`: Maximum number of branch streams to track
+- `--piq-size`: Maximum size of the PIQ
+- `--ftq-size`: Maximum size of the FTQ
+- `--prefetch-buffer-size`: Maximum size of the Prefetch Buffer
 - `--dedicated-predictor`: Use a dedicated branch predictor for FDIP
 
 ## Comparison with Next-Line Prefetching
@@ -96,6 +128,14 @@ To adjust the confidence threshold for branch predictions:
 
 ```bash
 ./build/X86/gem5.opt configs/example/fdip_example.py --cmd=/path/to/benchmark --confidence-threshold=70
+```
+
+### Adjusting Queue Sizes
+
+To adjust the sizes of the PIQ, FTQ, and Prefetch Buffer:
+
+```bash
+./build/X86/gem5.opt configs/example/fdip_example.py --cmd=/path/to/benchmark --piq-size=64 --ftq-size=32 --prefetch-buffer-size=32
 ```
 
 ## Debugging

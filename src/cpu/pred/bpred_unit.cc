@@ -64,8 +64,22 @@ BPredUnit::BPredUnit(const Params &params)
       btb(params.btb),
       ras(params.ras),
       iPred(params.indirectBranchPred),
+      mispredictHandler(nullptr),
+      correctPredictHandler(nullptr),
       stats(this)
 {
+}
+
+void
+BPredUnit::setMispredictionHandler(MispredictionHandler handler)
+{
+    mispredictHandler = handler;
+}
+
+void
+BPredUnit::setCorrectPredictionHandler(CorrectPredictionHandler handler)
+{
+    correctPredictHandler = handler;
 }
 
 
@@ -366,6 +380,13 @@ BPredUnit::commitBranch(ThreadID tid, PredictorHistory* &hist)
                 hist->seqNum, hist->pc, toString(hist->type),
                 hist->predTaken, hist->actuallyTaken,
                 hist->target->instAddr());
+                
+    // Call the correct prediction handler if registered and not mispredicted
+    if (correctPredictHandler && !hist->mispredict) {
+        DPRINTF(Branch, "[tid:%i] Calling correct prediction handler for PC:%#x, "
+                "target:%#x\n", tid, hist->pc, hist->target->instAddr());
+        correctPredictHandler(hist->pc, hist->target->instAddr(), 0);
+    }
 
     // Update the branch predictor with the correct results.
     update(tid, hist->pc,
@@ -521,6 +542,13 @@ BPredUnit::squash(const InstSeqNum &squashed_sn,
         hist->mispredict = true;
         hist->actuallyTaken = actually_taken;
         set(hist->target,  corr_target);
+        
+        // Call the misprediction handler if registered
+        if (mispredictHandler) {
+            DPRINTF(Branch, "[tid:%i] Calling misprediction handler for PC:%#x, "
+                    "target:%#x\n", tid, hist->pc, corr_target.instAddr());
+            mispredictHandler(hist->pc, corr_target.instAddr(), 0);
+        }
 
         // Correct Direction predictor ------------------
         update(tid, hist->pc, actually_taken, hist->bpHistory,

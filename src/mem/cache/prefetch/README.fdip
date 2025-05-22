@@ -7,18 +7,46 @@ Fetch Directed Instruction Prefetching (FDIP) is a technique that uses branch pr
 ## Features
 
 - Uses branch predictor results (specifically TAGE predictor) to guide prefetching
-- Handles miss prediction cases by falling back to next-line prefetching
+- Handles misprediction cases through a dedicated notification mechanism
 - Supports single thread execution
 - Can be compared with next-line instruction prefetching
+- Provides confidence-based prefetching to avoid low-quality predictions
+- Supports both shared and dedicated branch predictors
+- Tracks branch prediction accuracy to improve prefetching quality
 
 ## Implementation Details
 
 The FDIP prefetcher works by:
 
 1. Using the branch predictor to predict future branch targets
-2. Prefetching cache lines containing those targets
-3. Tracking prefetched addresses to avoid redundant prefetches
-4. Handling misprediction cases by falling back to next-line prefetching
+2. Tracking prediction confidence to filter out low-quality predictions
+3. Prefetching cache lines containing those targets
+4. Tracking prefetched addresses to avoid redundant prefetches
+5. Handling misprediction cases through a notification mechanism
+6. Maintaining branch prediction streams to adapt to program behavior
+
+### Branch Predictor Integration
+
+The FDIP prefetcher can work in two modes:
+
+1. **Shared Branch Predictor**: Uses the CPU's branch predictor through a callback mechanism
+2. **Dedicated Branch Predictor**: Creates its own branch predictor instance to avoid affecting CPU prediction
+
+The integration uses a notification system with callbacks for:
+- Branch mispredictions: `notifyBranchMisprediction(pc, actualTarget, confidence)`
+- Correct predictions: `notifyCorrectPrediction(pc, target, confidence)`
+
+These callbacks are automatically registered with the branch predictor during initialization.
+
+### Misprediction Handling
+
+The implementation handles mispredictions through:
+
+1. Notification callbacks from the CPU when a branch is mispredicted
+2. Tracking prediction accuracy for each branch PC
+3. Adjusting confidence thresholds based on prediction history
+4. Maintaining branch streams that can be updated with actual execution results
+5. Confidence-based filtering to avoid prefetching based on low-confidence predictions
 
 ## Usage
 
@@ -33,6 +61,9 @@ To use the FDIP prefetcher, you can use the provided example script:
 - `--prefetcher`: Type of prefetcher to use (fdip, stride, none)
 - `--prefetch-degree`: Number of blocks to prefetch
 - `--max-lookahead`: Maximum number of instructions to look ahead for FDIP
+- `--confidence-threshold`: Minimum confidence threshold for FDIP (0-100)
+- `--max-streams`: Maximum number of branch streams to track
+- `--dedicated-predictor`: Use a dedicated branch predictor for FDIP
 
 ## Comparison with Next-Line Prefetching
 
@@ -47,6 +78,24 @@ The FDIP prefetcher can be compared with next-line prefetching by running:
 
 # Run with no prefetching
 ./build/X86/gem5.opt configs/example/fdip_example.py --cmd=/path/to/benchmark --prefetcher=none
+```
+
+## Advanced Configuration
+
+### Using a Dedicated Branch Predictor
+
+To use a dedicated branch predictor instead of the CPU's branch predictor:
+
+```bash
+./build/X86/gem5.opt configs/example/fdip_example.py --cmd=/path/to/benchmark --dedicated-predictor
+```
+
+### Tuning Confidence Threshold
+
+To adjust the confidence threshold for branch predictions:
+
+```bash
+./build/X86/gem5.opt configs/example/fdip_example.py --cmd=/path/to/benchmark --confidence-threshold=70
 ```
 
 ## Debugging

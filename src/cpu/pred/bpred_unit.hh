@@ -43,6 +43,7 @@
 #define __CPU_PRED_BPRED_UNIT_HH__
 
 #include <deque>
+#include <functional>
 
 #include "base/statistics.hh"
 #include "base/types.hh"
@@ -74,6 +75,33 @@ class BPredUnit : public SimObject
 
     /** Branch Predictor Unit (BPU) interface functions */
   public:
+    /**
+     * Type definition for branch misprediction notification callback
+     * @param pc Program counter of the mispredicted branch
+     * @param target Actual target of the branch
+     * @param cpu_num CPU number (for multi-core systems)
+     */
+    typedef std::function<void(Addr pc, Addr target, unsigned cpu_num)> MispredictionHandler;
+    
+    /**
+     * Type definition for correct prediction notification callback
+     * @param pc Program counter of the correctly predicted branch
+     * @param target Target of the branch
+     * @param cpu_num CPU number (for multi-core systems)
+     */
+    typedef std::function<void(Addr pc, Addr target, unsigned cpu_num)> CorrectPredictionHandler;
+    
+    /**
+     * Callback for branch misprediction notification
+     * This is called when a branch is mispredicted
+     */
+    MispredictionHandler mispredictHandler;
+    
+    /**
+     * Callback for correct prediction notification
+     * This is called when a branch is correctly predicted
+     */
+    CorrectPredictionHandler correctPredictHandler;
 
 
 

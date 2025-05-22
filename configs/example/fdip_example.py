@@ -18,6 +18,7 @@ in gem5. It compares FDIP with next-line prefetching.
 
 import argparse
 import sys
+import os
 
 import m5
 from m5.objects import *
@@ -96,6 +97,12 @@ parser.add_argument("--prefetch-degree", type=int, default=2,
                     help="Prefetch degree (number of blocks to prefetch)")
 parser.add_argument("--max-lookahead", type=int, default=16,
                     help="Maximum number of instructions to look ahead for FDIP")
+parser.add_argument("--confidence-threshold", type=int, default=50,
+                    help="Minimum confidence threshold for FDIP (0-100)")
+parser.add_argument("--max-streams", type=int, default=16,
+                    help="Maximum number of branch streams to track")
+parser.add_argument("--dedicated-predictor", action="store_true",
+                    help="Use a dedicated branch predictor for FDIP")
 
 options = parser.parse_args()
 
@@ -183,21 +190,55 @@ system.l2cache.connectCPUSideBus(system.l2bus)
 
 # Configure the prefetcher
 if options.prefetcher == "fdip":
+    # Create TAGE parameters if using a dedicated predictor
+    if options.dedicated_predictor:
+        tage_params = TAGE()
+        tournament_params = TournamentBP()
+    else:
+        tage_params = TAGE()
+        tournament_params = TournamentBP()
+    
     # Use FDIP prefetcher
-    system.l2cache.prefetcher = FDIPrefetcher(degree=options.prefetch_degree,
-                                             max_lookahead=options.max_lookahead,
-                                             use_tage=True,
-                                             thread_id=0)
+    system.l2cache.prefetcher = FDIPrefetcher(
+        degree=options.prefetch_degree,
+        max_lookahead=options.max_lookahead,
+        use_tage=True,
+        thread_id=0,
+        confidence_threshold=options.confidence_threshold,
+        max_streams=options.max_streams,
+        create_dedicated_predictor=options.dedicated_predictor,
+        tage_params=tage_params,
+        tournament_params=tournament_params
+    )
     
-    # We need to connect the branch predictor to the prefetcher after the system is instantiated
-    # This will be done in a callback function
-    def connectBranchPredictor(root):
-        for cpu in root.system.cpu:
-            if hasattr(root.system.l2cache, 'prefetcher'):
-                root.system.l2cache.prefetcher.setBranchPredictor(cpu.getBranchPredictor())
+    # If not using a dedicated predictor, connect to the CPU's branch predictor
+    if not options.dedicated_predictor:
+        # We need to connect the branch predictor to the prefetcher after the system is instantiated
+        # This will be done in a callback function
+        def connectBranchPredictor(root):
+            for cpu in root.system.cpu:
+                if hasattr(root.system.l2cache, 'prefetcher'):
+                    root.system.l2cache.prefetcher.setBranchPredictor(cpu.getBranchPredictor())
+        
+        # Register the callback to be called after instantiation
+        m5.registerCallback(connectBranchPredictor)
     
-    # Register the callback to be called after instantiation
-    m5.registerCallback(connectBranchPredictor)
+    # Register callbacks for branch misprediction notifications
+    def notifyBranchMisprediction(pc, target, confidence=0, cpu_num=0):
+        """Notify the prefetcher about a branch misprediction"""
+        if hasattr(system.l2cache, 'prefetcher'):
+            system.l2cache.prefetcher.notifyBranchMisprediction(pc, target, confidence)
+    
+    def notifyCorrectPrediction(pc, target, confidence=0, cpu_num=0):
+        """Notify the prefetcher about a correct branch prediction"""
+        if hasattr(system.l2cache, 'prefetcher'):
+            system.l2cache.prefetcher.notifyCorrectPrediction(pc, target, confidence)
+    
+    # Hook these callbacks into the CPU's branch predictor
+    for cpu in system.cpu:
+        cpu.branchPred.mispredictHandler = notifyBranchMisprediction
+        cpu.branchPred.correctPredictHandler = notifyCorrectPrediction
+    
 elif options.prefetcher == "stride":
     # Use stride prefetcher
     system.l2cache.prefetcher = StridePrefetcher(degree=options.prefetch_degree)

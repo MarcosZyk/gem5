@@ -133,6 +133,11 @@ warn(
 parser = argparse.ArgumentParser()
 Options.addCommonOptions(parser)
 Options.addSEOptions(parser)
+parser.add_argument(
+    "--disable-fdp",
+    action="store_true",
+    help="Disable FDP to get evaluate baseline",
+)
 
 if "--ruby" in sys.argv:
     Ruby.define_options(parser)
@@ -220,6 +225,10 @@ if args.elastic_trace_en:
 # frequency.
 for cpu in system.cpu:
     cpu.clk_domain = system.cpu_clk_domain
+    if args.disable_fdp:
+        cpu.decoupledFrontEnd = False
+    else:
+        cpu.decoupledFrontEnd = True
 
 if ObjectList.is_kvm_cpu(CPUClass) or ObjectList.is_kvm_cpu(FutureClass):
     if buildEnv["USE_X86_ISA"]:

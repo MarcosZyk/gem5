@@ -401,14 +401,12 @@ BPredUnit::squash(const InstSeqNum &squashed_sn, ThreadID tid)
 
         auto hist = predHist[tid].front();
 
-        squashHistory(tid, hist);
-
         DPRINTF(Branch, "[tid:%i, squash sn:%llu] Removing history for "
                 "sn:%llu, PC:%#x\n", tid, squashed_sn, hist->seqNum,
                 hist->pc);
 
+        squashHistory(tid, hist);
 
-        delete predHist[tid].front();
         predHist[tid].pop_front();
 
         DPRINTF(Branch, "[tid:%i] [squash sn:%llu] pred_hist.size(): %i\n",
@@ -445,6 +443,8 @@ BPredUnit::squashHistory(ThreadID tid, PredictorHistory* &history)
 
     // This call should delete the bpHistory.
     squash(tid, history->bpHistory);
+
+    delete history; history = nullptr;
 }
 
 
@@ -558,6 +558,11 @@ BPredUnit::squash(const InstSeqNum &squashed_sn,
                     // push it to the RAS.
                     auto return_addr = hist->inst->buildRetPC(
                                                     corr_target, corr_target);
+
+                    if (hist->inst->size()) {
+                        return_addr->set(corr_target.instAddr()
+                                         + hist->inst->size());
+                    }
 
                     DPRINTF(Branch, "[tid:%i] [squash sn:%llu] "
                             "Incorrectly predicted call: [sn:%llu,PC:%#x] "

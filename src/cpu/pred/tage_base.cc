@@ -79,8 +79,8 @@ TAGEBase::TAGEBase(const TAGEBaseParams &p)
 }
 
 TAGEBase::BranchInfo*
-TAGEBase::makeBranchInfo() {
-    return new BranchInfo(*this);
+TAGEBase::makeBranchInfo(Addr pc, bool conditional) {
+    return new BranchInfo(*this, pc, conditional);
 }
 
 void
@@ -347,6 +347,7 @@ TAGEBase::calculateIndicesAndTags(ThreadID tid, Addr branch_pc,
         tableTags[i] = gtag(tid, branch_pc, i);
         bi->tableTags[i] = tableTags[i];
     }
+    bi->valid = true;
 }
 
 unsigned
@@ -592,6 +593,19 @@ TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool taken,
     if (speculative != speculativeHistUpdate) {
         return;
     }
+
+    // Recalculate the tags and indices if needed. This can be the case
+    // as in the decoupled frontend branches can be inserted out of order
+    // (surprise branches). We can not compute the tags and indices
+    // at that point since the BPU might already speculated on other branches
+    // which updated the history. We can recalulate the tags and indices
+    // now since either the branch was correctly not taken and the history
+    // will not be updated or the branch was incorrect in which case the
+    // branches afterwards where squashed and the history was restored.
+    if (!bi->valid && bi->condBranch) {
+        calculateIndicesAndTags(tid, branch_pc, bi);
+    }
+
     ThreadHistory& tHist = threadHistory[tid];
     //  UPDATE HISTORIES
     bool pathbit = ((branch_pc >> instShiftAmt) & 1);

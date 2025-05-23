@@ -45,6 +45,8 @@ from m5.objects.FUPool import *
 from m5.params import *
 from m5.proxy import *
 
+from src.cpu.pred.BranchPredictor import LTAGE
+
 
 class SMTFetchPolicy(ScopedEnum):
     vals = ["RoundRobin", "Branch", "IQCount", "LSQCount"]
@@ -192,7 +194,7 @@ class BaseO3CPU(BaseCPU):
     smtCommitPolicy = Param.CommitPolicy("RoundRobin", "SMT Commit Policy")
 
     branchPred = Param.BranchPredictor(
-        TournamentBP(numThreads=Parent.numThreads), "Branch Predictor"
+        LTAGE(numThreads=Parent.numThreads), "Branch Predictor"
     )
     needsTSO = Param.Bool(False, "Enable TSO Memory model")
 

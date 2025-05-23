@@ -110,7 +110,7 @@ TAGE::squash(ThreadID tid, void * &bp_history)
 bool
 TAGE::predict(ThreadID tid, Addr pc, bool cond_branch, void* &b)
 {
-    TageBranchInfo *bi = new TageBranchInfo(*tage);//nHistoryTables+1);
+    TageBranchInfo *bi = new TageBranchInfo(*tage, pc, cond_branch);
     b = (void*)(bi);
     return tage->tagePredict(tid, pc, cond_branch, bi->tageBranchInfo);
 }
@@ -138,6 +138,13 @@ TAGE::updateHistories(ThreadID tid, Addr pc, bool uncond,
     // Update the global history for all branches
     TageBranchInfo *bi = static_cast<TageBranchInfo*>(bp_history);
     tage->updateHistories(tid, pc, taken, bi->tageBranchInfo, true);
+}
+
+void
+TAGE::branchPlaceholder(ThreadID tid, Addr pc, bool uncond, void * &bpHistory)
+{
+    TageBranchInfo *bi = new TageBranchInfo(*tage, pc, !uncond);
+    bpHistory = (void*)(bi);
 }
 
 } // namespace branch_prediction

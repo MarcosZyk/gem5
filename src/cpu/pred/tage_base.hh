@@ -154,18 +154,20 @@ class TAGEBase : public SimObject
         int *ci;
         int *ct0;
         int *ct1;
+        // A flag to indicate if the indies and tags are valid.
+        bool valid;
 
         // for stats purposes
         unsigned provider;
 
-        BranchInfo(const TAGEBase &tage)
+        BranchInfo(const TAGEBase &tage, Addr pc, bool conditional)
             : pathHist(0), ptGhist(0),
               hitBank(0), hitBankIndex(0),
               altBank(0), altBankIndex(0),
               bimodalIndex(0),
               tagePred(false), altTaken(false),
-              condBranch(false), longestMatchPred(false),
-              pseudoNewAlloc(false), branchPC(0),
+              condBranch(conditional), longestMatchPred(false),
+              pseudoNewAlloc(false), branchPC(pc),
               provider(-1)
         {
             int sz = tage.nHistoryTables + 1;
@@ -183,7 +185,7 @@ class TAGEBase : public SimObject
         }
     };
 
-    virtual BranchInfo *makeBranchInfo();
+    virtual BranchInfo *makeBranchInfo(Addr pc, bool conditional);
 
     /**
      * Computes the index used to access the

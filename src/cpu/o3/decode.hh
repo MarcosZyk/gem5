@@ -194,7 +194,7 @@ class Decode
     /** Squashes if there is a PC-relative branch that was predicted
      * incorrectly. Sends squash information back to fetch.
      */
-    void squash(const DynInstPtr &inst, ThreadID tid);
+    void squash(const DynInstPtr &inst, bool pred_incorrect, ThreadID tid);
 
   public:
     /** Squashes due to commit signalling a squash. Changes status to

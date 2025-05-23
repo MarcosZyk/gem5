@@ -659,6 +659,7 @@ CPU::removeThread(ThreadID tid)
     // clear all thread-specific states in each stage of the pipeline
     // since this thread is going to be completely removed from the CPU
     commit.clearStates(tid);
+    bac.clearStates(tid);
     fetch.clearStates(tid);
     decode.clearStates(tid);
     rename.clearStates(tid);

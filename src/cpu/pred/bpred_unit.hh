@@ -60,6 +60,10 @@
 namespace gem5
 {
 
+namespace o3 {
+    class BAC;
+}
+
 namespace branch_prediction
 {
 
@@ -69,6 +73,8 @@ namespace branch_prediction
  */
 class BPredUnit : public SimObject
 {
+    friend class o3::BAC;
+
     typedef BranchPredictorParams Params;
     typedef enums::TargetProvider TargetProvider;
 

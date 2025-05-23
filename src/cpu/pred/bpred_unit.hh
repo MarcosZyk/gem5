@@ -286,7 +286,7 @@ class BPredUnit : public SimObject
         }
 
         /** The sequence number for the predictor history entry. */
-        const InstSeqNum seqNum;
+        InstSeqNum seqNum;
 
         /** The thread id. */
         const ThreadID tid;

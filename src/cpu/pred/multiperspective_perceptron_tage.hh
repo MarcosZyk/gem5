@@ -226,7 +226,7 @@ class MultiperspectivePerceptronTAGE : public MultiperspectivePerceptron
                           LoopPredictor &loopPredictor,
                           StatisticalCorrector &statisticalCorrector)
           : MPPBranchInfo(pc, pcshift, cond),
-            tageBranchInfo(tage.makeBranchInfo()),
+            tageBranchInfo(tage.makeBranchInfo(pc, cond)),
             lpBranchInfo(loopPredictor.makeBranchInfo()),
             scBranchInfo(statisticalCorrector.makeBranchInfo()),
             predictedTaken(false)
@@ -259,6 +259,9 @@ class MultiperspectivePerceptronTAGE : public MultiperspectivePerceptron
     void updateHistories(ThreadID tid, Addr pc, bool uncond, bool taken,
                          Addr target,  void * &bp_history) override;
     void squash(ThreadID tid, void * &bp_history) override;
+    void branchPlaceholder(ThreadID tid, Addr pc,
+                                bool uncond, void * &bpHistory) override
+    { panic("Not implemented for this BP!\n"); }
 
 };
 

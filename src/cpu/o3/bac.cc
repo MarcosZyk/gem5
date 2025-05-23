@@ -636,7 +636,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
         // Branch found in instruction stream. As the current
         // BPU implementation required the static instruction we need to
         // look it up from the BTB.
-        staticInst = bpu->BTBGetInst(tid, cur_pc);
+        staticInst = bpu->BTBGetInst(tid, cur_pc.instAddr());
         assert(staticInst);
 
         // Now make the actual prediction. Note the BPU will advance

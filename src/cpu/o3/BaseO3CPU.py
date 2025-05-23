@@ -45,8 +45,6 @@ from m5.objects.FUPool import *
 from m5.params import *
 from m5.proxy import *
 
-from src.cpu.pred.BranchPredictor import LTAGE
-
 
 class SMTFetchPolicy(ScopedEnum):
     vals = ["RoundRobin", "Branch", "IQCount", "LSQCount"]

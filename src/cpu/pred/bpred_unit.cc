@@ -604,6 +604,12 @@ BPredUnit::squash(const InstSeqNum &squashed_sn,
     }
 }
 
+void
+BPredUnit::branchPlaceholder(ThreadID tid, Addr pc,
+                                    bool uncond, void * &bpHistory)
+{
+    panic("Not implemented for this BP!\n");
+}
 
 void
 BPredUnit::dump()

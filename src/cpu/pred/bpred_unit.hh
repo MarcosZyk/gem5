@@ -134,6 +134,22 @@ class BPredUnit : public SimObject
     void squash(const InstSeqNum &squashed_sn, const PCStateBase &corr_target,
                 bool actually_taken, ThreadID tid, bool from_commit=true);
 
+    /**
+     * Special function for the decoupled front-end. In it there can be
+     * branches which are not detected by the BPU in the first place as it
+     * requires a BTB hit. This function will generage a placeholder for
+     * such a branch once it is pre-decoded in the fetch stage. It will
+     * only create the branch history object but not update BPU internal.
+     * If the branch turns to be wrong then decode or commit will
+     * be able to user the normal squash functionality to correct the branch.
+     * Note that not all branch predictors implement this functionality.
+     * @param PC The branch's PC.
+     * @param uncond Wheather or not this branch is an unconditional branch.
+     * @param bpHistory Pointer that will be set to an branch history object.
+     */
+    virtual void branchPlaceholder(ThreadID tid, Addr pc,
+                                bool uncond, void * &bpHistory);
+
   protected:
 
     /** *******************************************************

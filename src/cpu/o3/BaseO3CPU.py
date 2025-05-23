@@ -200,7 +200,7 @@ class BaseO3CPU(BaseCPU):
         8, "Number of entries in the Fetch target queue."
     )
     fetchTargetWidth = Param.Unsigned(
-        32,
+        64,
         "Max width (bytes) of Fetch target. "
         "Determines the maximum search width per cycle",
     )

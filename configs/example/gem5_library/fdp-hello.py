@@ -57,6 +57,7 @@ scons build/ALL/gem5.opt
 ```
 """
 
+import os
 import argparse
 
 from m5.objects import (
@@ -280,19 +281,24 @@ board = SimpleBoard(
     cache_hierarchy=cache_hierarchy,
 )
 
-# Here we set the workload. In this case we want to run a simple "Hello World!"
-# program compiled to the ARM ISA. The `Resource` class will automatically
-# download the binary from the gem5 Resources cloud bucket if it's not already
-# present.
-board.set_se_binary_workload(
-    # The `Resource` class reads the `resources.json` file from the gem5
-    # resources repository:
-    # https://gem5.googlesource.com/public/gem5-resource.
-    # Any resource specified in this file will be automatically retrieved.
-    # At the time of writing, this file is a WIP and does not contain all
-    # resources. Jira ticket: https://gem5.atlassian.net/browse/GEM5-1096
-    obtain_resource(workloads[args.workload][args.isa])
-)
+if os.path.exists(args.workload):
+    board.set_se_binary_workload(
+        binary=args.workload
+    )
+else:
+    # Here we set the workload. In this case we want to run a simple "Hello World!"
+    # program compiled to the ARM ISA. The `Resource` class will automatically
+    # download the binary from the gem5 Resources cloud bucket if it's not already
+    # present.
+    board.set_se_binary_workload(
+        # The `Resource` class reads the `resources.json` file from the gem5
+        # resources repository:
+        # https://gem5.googlesource.com/public/gem5-resource.
+        # Any resource specified in this file will be automatically retrieved.
+        # At the time of writing, this file is a WIP and does not contain all
+        # resources. Jira ticket: https://gem5.atlassian.net/browse/GEM5-1096
+        obtain_resource(workloads[args.workload][args.isa])
+    )
 
 
 # Lastly we run the simulation.

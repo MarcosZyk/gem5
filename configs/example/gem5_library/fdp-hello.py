@@ -60,7 +60,7 @@ scons build/ALL/gem5.opt
 import argparse
 
 from m5.objects import (
-    AssociativeBTB,
+    # AssociativeBTB,
     LTAGE,
     TaggedPrefetcher,
     FetchDirectedPrefetcher,
@@ -141,15 +141,15 @@ memory = SingleChannelDDR3_1600(size="32MB")
 
 
 ## FDP needs the AssociativeBTB.
-class BTB(AssociativeBTB):
-    numEntries = "8kB"
-    assoc = 4
-
-
-class BPLTage(LTAGE):
-    instShiftAmt = 0
-    BTB = BTB()
-    requiresBTBHit = True
+# class BTB(AssociativeBTB):
+#     numEntries = "8kB"
+#     assoc = 4
+#
+#
+# class BPLTage(LTAGE):
+#     instShiftAmt = 0
+#     BTB = BTB()
+#     requiresBTBHit = True
 
 
 # We need a custom cache hierarchy to incorporate the FDP prefetcher.
@@ -228,7 +228,8 @@ else:  # Variable length ISA (x86) must search every byte
 
 # Use the AssociativeBTB as its the only one that supports
 # the decoupled front-end at the moment.
-cpu.branchPred = BPLTage()
+# cpu.branchPred = BPLTage()
+cpu.branchPred = LTAGE()
 
 # Finally the `decoupledFrontEnd` parameter enables the decoupled front-end.
 # Disable it to get the baseline.

@@ -70,7 +70,7 @@ from m5.objects import (
 
 from gem5.isas import ISA
 from gem5.utils.requires import requires
-from gem5.resources.resource import obtain_resource, CustomResource
+from gem5.resources.resource import obtain_resource, FileResource
 from gem5.components.memory import SingleChannelDDR3_1600
 from gem5.components.processors.cpu_types import CPUTypes
 from gem5.components.boards.simple_board import SimpleBoard
@@ -283,7 +283,7 @@ board = SimpleBoard(
 
 if os.path.exists(args.workload):
     board.set_se_binary_workload(
-        binary=CustomResource(args.workload)
+        binary=FileResource(args.workload)
     )
 else:
     # Here we set the workload. In this case we want to run a simple "Hello World!"

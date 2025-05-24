@@ -24,10 +24,10 @@ scons build/ALL/gem5.opt
 import argparse
 
 from m5.objects import (
-    AssociativeBTB,
+    # AssociativeBTB,
     LTAGE,
     TaggedPrefetcher,
-    FetchDirectedPrefetcher,
+    # FetchDirectedPrefetcher,
     L2XBar,
 )
 

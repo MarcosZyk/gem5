@@ -130,6 +130,12 @@ parser.add_argument(
     help="Disable FDP to get evaluate baseline",
 )
 
+parser.add_argument(
+    "--arguments",
+    type=str,
+    default="",
+)
+
 args = parser.parse_args()
 
 
@@ -283,7 +289,8 @@ board = SimpleBoard(
 
 if os.path.exists(args.workload):
     board.set_se_binary_workload(
-        binary=BinaryResource(args.workload)
+        binary=BinaryResource(args.workload),
+        arguments=args.arguments.split(" ")
     )
 else:
     # Here we set the workload. In this case we want to run a simple "Hello World!"

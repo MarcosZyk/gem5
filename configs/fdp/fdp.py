@@ -182,7 +182,7 @@ cpu.minInstSize = 1
 # Use the AssociativeBTB as its the only one that supports
 # the decoupled front-end at the moment.
 # cpu.branchPred = BPLTage()
-cpu.branchPred = LTage(numThreads=1)
+cpu.branchPred = LTAGE(numThreads=1)
 
 # Finally the `decoupledFrontEnd` parameter enables the decoupled front-end.
 # Disable it to get the baseline.

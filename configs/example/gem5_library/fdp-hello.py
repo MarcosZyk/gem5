@@ -121,7 +121,7 @@ parser.add_argument(
     type=str,
     default="hello",
     help="The workload to simulate.",
-    choices=workloads.keys(),
+    # choices=workloads.keys(),
 )
 
 parser.add_argument(

@@ -53,7 +53,7 @@ scons build/ALL/gem5.opt
 ./build/ALL/gem5.opt \
     configs/example/gem5_library/fdp-hello.py \
     --isa <isa> \
-    [--disable-fdp]
+    --prefetcher <prefetcher>
 ```
 """
 

@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "debug/HWPrefetch.hh"
+#include "debug/FDIP.hh"
 #include "mem/cache/base.hh"
 #include "params/FetchDirectedInstructionPrefetcher.hh"
 

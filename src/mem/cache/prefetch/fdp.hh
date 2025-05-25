@@ -61,7 +61,7 @@ class FetchDirectedPrefetcher : public Base
 {
 
   public:
-    FetchDirectedPrefetcher(FetchDirectedPrefetcherParams &p);
+    FetchDirectedPrefetcher(const FetchDirectedPrefetcherParams &p);
     ~FetchDirectedPrefetcher() = default;
 
 
@@ -116,6 +116,12 @@ class FetchDirectedPrefetcher : public Base
     /** The prefetch queue */
     std::list<PFQEntry> pfq;
 
+
+    /** Notify functions are not used by this prefetcher. */
+    void
+    notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi)
+    override
+    {}
 
     /** Notifies the prefetcher that a new fetch target was
      * inserted into the FTQ. */

@@ -89,9 +89,6 @@ class FetchDirectedPrefetcher : public Base
     /** Pointer to the cache it is attached to */
     BaseCache *cache;
 
-    /** For testing purposes */
-    const bool transFunctional;
-
     /** The latency of the prefetcher */
     const unsigned int latency;
 

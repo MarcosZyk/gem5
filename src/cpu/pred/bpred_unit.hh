@@ -211,24 +211,6 @@ class BPredUnit : public SimObject
                                    bool uncond, void * &bp_history);
 
     /**
-     * Special function for the decoupled front-end. In it there can be
-     * branches which are not detected by the BPU in the first place as it
-     * requires a BTB hit. This function will generate a placeholder for
-     * such a branch once it is pre-decoded in the fetch stage. It will
-     * only create the branch history object but not update any internal state
-     * of the BPU.
-     * If the branch turns to be wrong then decode or commit will
-     * be able to use the normal squash functionality to correct the branch.
-     * Note that not all branch predictors implement this functionality.
-     * @param tid The thread id.
-     * @param pc The branch's PC.
-     * @param uncond Whether or not this branch is an unconditional branch.
-     * @param bp_history Pointer that will be set to an branch history object.
-     */
-    virtual void branchPlaceholder(ThreadID tid, Addr pc,
-                                   bool uncond, void * &bp_history);
-
-    /**
      * Looks up a given PC in the BTB to see if a matching entry exists.
      * @param tid The thread id.
      * @param pc The PC to look up.

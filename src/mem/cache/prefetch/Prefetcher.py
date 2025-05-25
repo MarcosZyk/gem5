@@ -1,5 +1,4 @@
 # Copyright (c) 2012, 2014, 2019, 2022-2024 Arm Limited
-# Copyright (c) 2023 The University of Edinburgh
 # All rights reserved.
 #
 # The license below extends only to copyright in the software and shall
@@ -730,10 +729,10 @@ class PIFPrefetcher(QueuedPrefetcher):
         )
 
 
-class FetchDirectedPrefetcher(BasePrefetcher):
-    type = "FetchDirectedPrefetcher"
-    cxx_class = "gem5::prefetch::FetchDirectedPrefetcher"
-    cxx_header = "mem/cache/prefetch/fdp.hh"
+class FetchDirectedInstructionPrefetcher(BasePrefetcher):
+    type = "FetchDirectedInstructionPrefetcher"
+    cxx_class = "gem5::prefetch::FetchDirectedInstructionPrefetcher"
+    cxx_header = "mem/cache/prefetch/fdip.hh"
 
     cpu = Param.BaseCPU(Parent.any, "The CPU to train the predictor")
 

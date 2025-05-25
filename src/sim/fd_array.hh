@@ -100,8 +100,8 @@ class FDArray : public Serializable
      * entry which is denoted as being free by being a 'nullptr'. That file
      * descriptor entry is the new target file descriptor entry that we
      * return as the return parameter.
-     * @param fdp Allocated beforehand and passed into this method;
-     * the fdp is meant to be a generic pointer capable of pointing to
+     * @param fdip Allocated beforehand and passed into this method;
+     * the fdip is meant to be a generic pointer capable of pointing to
      * different types of file descriptors. Must cast the pointer to the
      * correct type before dereferencing to access the needed fields.
      */

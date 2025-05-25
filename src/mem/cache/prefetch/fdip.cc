@@ -1,48 +1,10 @@
-/*
- * Copyright (c) 2022-2023 The University of Edinburgh
- * All rights reserved
- *
- * The license below extends only to copyright in the software and shall
- * not be construed as granting a license to any other intellectual
- * property including but not limited to intellectual property relating
- * to a hardware implementation of the functionality of the software
- * licensed hereunder.  You may use the software subject to the license
- * terms below provided that you ensure that this notice is replicated
- * unmodified and in its entirety in all distributions of the software,
- * modified or unmodified, in source code or in binary form.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met: redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer;
- * redistributions in binary form must reproduce the above copyright
- * notice, this list of conditions and the following disclaimer in the
- * documentation and/or other materials provided with the distribution;
- * neither the name of the copyright holders nor the names of its
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-
-#include "mem/cache/prefetch/fdp.hh"
+#include "mem/cache/prefetch/fdip.hh"
 
 #include <utility>
 
 #include "debug/HWPrefetch.hh"
 #include "mem/cache/base.hh"
-#include "params/FetchDirectedPrefetcher.hh"
+#include "params/FetchDirectedInstructionPrefetcher.hh"
 
 namespace gem5
 {
@@ -50,8 +12,8 @@ namespace gem5
 namespace prefetch
 {
 
-FetchDirectedPrefetcher::FetchDirectedPrefetcher(
-                                const FetchDirectedPrefetcherParams &p)
+FetchDirectedInstructionPrefetcher::FetchDirectedInstructionPrefetcher(
+                                const FetchDirectedInstructionPrefetcherParams &p)
     : Base(p),
       cpu(p.cpu),
       cache(nullptr),
@@ -62,7 +24,7 @@ FetchDirectedPrefetcher::FetchDirectedPrefetcher(
 
 
 void
-FetchDirectedPrefetcher::notifyFTQInsert(const o3::FetchTargetPtr& ft)
+FetchDirectedInstructionPrefetcher::notifyFTQInsert(const o3::FetchTargetPtr& ft)
 {
     Addr blkAddr = blockAddress(ft->startAddress());
     notifyPfAddr(blkAddr, true);
@@ -70,13 +32,13 @@ FetchDirectedPrefetcher::notifyFTQInsert(const o3::FetchTargetPtr& ft)
 
 
 void
-FetchDirectedPrefetcher::notifyFTQRemove(const o3::FetchTargetPtr& ft)
+FetchDirectedInstructionPrefetcher::notifyFTQRemove(const o3::FetchTargetPtr& ft)
 {
 }
 
 
 void
-FetchDirectedPrefetcher::notifyPfAddr(Addr addr, bool virtual_addr)
+FetchDirectedInstructionPrefetcher::notifyPfAddr(Addr addr, bool virtual_addr)
 {
     Addr blk_addr = blockAddress(addr);
 
@@ -119,7 +81,7 @@ FetchDirectedPrefetcher::notifyPfAddr(Addr addr, bool virtual_addr)
 
 
 RequestPtr
-FetchDirectedPrefetcher::createPrefetchRequest(Addr vaddr)
+FetchDirectedInstructionPrefetcher::createPrefetchRequest(Addr vaddr)
 {
     RequestPtr req = std::make_shared<Request>(
             vaddr, blkSize, 0, requestorId, vaddr, 0);
@@ -129,7 +91,7 @@ FetchDirectedPrefetcher::createPrefetchRequest(Addr vaddr)
 
 
 PacketPtr
-FetchDirectedPrefetcher::createPrefetchPacket(Addr addr, bool virtual_addr)
+FetchDirectedInstructionPrefetcher::createPrefetchPacket(Addr addr, bool virtual_addr)
 {
     /* Create a prefetch memory request */
     RequestPtr req = nullptr;
@@ -170,7 +132,7 @@ FetchDirectedPrefetcher::createPrefetchPacket(Addr addr, bool virtual_addr)
 
 
 bool
-FetchDirectedPrefetcher::translateFunctional(RequestPtr req)
+FetchDirectedInstructionPrefetcher::translateFunctional(RequestPtr req)
 {
     if (mmu == nullptr) {
         return false;
@@ -195,7 +157,7 @@ FetchDirectedPrefetcher::translateFunctional(RequestPtr req)
 
 
 PacketPtr
-FetchDirectedPrefetcher::getPacket()
+FetchDirectedInstructionPrefetcher::getPacket()
 {
     if (pfq.size() == 0)
     {
@@ -215,7 +177,7 @@ FetchDirectedPrefetcher::getPacket()
 
 
 void
-FetchDirectedPrefetcher::regProbeListeners()
+FetchDirectedInstructionPrefetcher::regProbeListeners()
 {
     Base::regProbeListeners();
 
@@ -237,7 +199,7 @@ FetchDirectedPrefetcher::regProbeListeners()
 }
 
 
-FetchDirectedPrefetcher::Stats::Stats(statistics::Group *parent)
+FetchDirectedInstructionPrefetcher::Stats::Stats(statistics::Group *parent)
     : statistics::Group(parent),
     ADD_STAT(fdipInsertions, statistics::units::Count::get(),
             "Number of notifications from an insertion in the FTQ"),

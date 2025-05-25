@@ -1,39 +1,3 @@
-# Copyright (c) 2023 The University of Edinburgh
-# All rights reserved.
-#
-# The license below extends only to copyright in the software and shall
-# not be construed as granting a license to any other intellectual
-# property including but not limited to intellectual property relating
-# to a hardware implementation of the functionality of the software
-# licensed hereunder.  You may use the software subject to the license
-# terms below provided that you ensure that this notice is replicated
-# unmodified and in its entirety in all distributions of the software,
-# modified or unmodified, in source code or in binary form.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are
-# met: redistributions of source code must retain the above copyright
-# notice, this list of conditions and the following disclaimer;
-# redistributions in binary form must reproduce the above copyright
-# notice, this list of conditions and the following disclaimer in the
-# documentation and/or other materials provided with the distribution;
-# neither the name of the copyright holders nor the names of its
-# contributors may be used to endorse or promote products derived from
-# this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-
 """
 Fetch directed instruction prefetch (FDP) example
 
@@ -51,9 +15,9 @@ Usage
 ```
 scons build/ALL/gem5.opt
 ./build/ALL/gem5.opt \
-    configs/example/gem5_library/fdp-hello.py \
+    configs/example/gem5_library/fdip-hello.py \
     --isa <isa> \
-    [--disable-fdp]
+    --prefetcher <prefetcher>
 ```
 """
 
@@ -64,6 +28,7 @@ from m5.objects import (
     # AssociativeBTB,
     LTAGE,
     TaggedPrefetcher,
+    FetchDirectedInstructionPrefetcher,
     L2XBar,
 )
 
@@ -120,9 +85,10 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--disable-fdp",
-    action="store_true",
-    help="Disable FDP to get evaluate baseline",
+    "--prefetcher",
+    type=str,
+    help="The prefetcher to be used.",
+    choices=["None", "TAGGED", "FDP"]
 )
 
 parser.add_argument(
@@ -140,18 +106,6 @@ requires(isa_required=isa_choices[args.isa])
 
 # We use a single channel DDR3_1600 memory system
 memory = SingleChannelDDR3_1600(size="32MB")
-
-
-## FDP needs the AssociativeBTB.
-# class BTB(AssociativeBTB):
-#     numEntries = "8kB"
-#     assoc = 4
-#
-#
-# class BPLTage(LTAGE):
-#     instShiftAmt = 0
-#     BTB = BTB()
-#     requiresBTBHit = True
 
 
 # We need a custom cache hierarchy to incorporate the FDP prefetcher.
@@ -234,16 +188,12 @@ else:  # Variable length ISA (x86) must search every byte
 cpu.branchPred = LTAGE()
 
 # Finally the `decoupledFrontEnd` parameter enables the decoupled front-end.
-# Disable it to get the baseline.
-if args.disable_fdp:
-    cpu.decoupledFrontEnd = False
-else:
-    cpu.decoupledFrontEnd = True
+cpu.decoupledFrontEnd = True
 
 
 print(
     "Running {} on {}, FDP {}".format(
-        args.workload, args.isa, "disabled" if args.disable_fdp else "enabled"
+        args.workload, args.isa, args.prefetcher
     )
 )
 
@@ -256,7 +206,18 @@ print(
 # Create the icache and the prefetcher
 icache = L1ICache(size="32kB")
 
-icache.prefetcher = TaggedPrefetcher()
+if args.prefetcher == "None":
+    pass
+elif args.prefetcher == "TAGGED":
+    icache.prefetcher = TaggedPrefetcher(degree=1)
+elif args.prefetcher == "FDP":
+    ## Setup the FDP prefetcher
+    icache.prefetcher = FetchDirectedInstructionPrefetcher(
+        # use_virtual_addresses=True,
+        # The FDIP needs to know to which CPU to listent to.
+        cpu=cpu,
+    )
+
 
 # Register the MMU to allow address translation
 icache.prefetcher.registerMMU(processor.cores[0].core.mmu)

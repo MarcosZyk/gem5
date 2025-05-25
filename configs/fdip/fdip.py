@@ -208,9 +208,9 @@ icache = L1ICache(size="32kB")
 
 if args.prefetcher == "None":
     pass
-elif args.prefetcher == "TAGGED":
+elif args.prefetcher == "NL":
     icache.prefetcher = TaggedPrefetcher(degree=1)
-elif args.prefetcher == "FDP":
+elif args.prefetcher == "FDIP":
     ## Setup the FDP prefetcher
     icache.prefetcher = FetchDirectedInstructionPrefetcher(
         # use_virtual_addresses=True,

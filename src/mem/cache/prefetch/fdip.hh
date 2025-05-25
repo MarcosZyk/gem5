@@ -1,7 +1,3 @@
-/**
- * Implementation of the fetch directed instruction prefetcher.
- */
-
 #ifndef __MEM_CACHE_PREFETCH_FDP_HH__
 #define __MEM_CACHE_PREFETCH_FDP_HH__
 

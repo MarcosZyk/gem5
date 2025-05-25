@@ -68,7 +68,6 @@ class FetchDirectedPrefetcher : public Base
 
     /** Base class overrides */
     void regProbeListeners() override;
-    void setCache(BaseCache *_cache) override { cache = _cache; }
 
     /** Gets a packet from the prefetch queue to be prefetched. */
     PacketPtr getPacket() override;
@@ -79,20 +78,16 @@ class FetchDirectedPrefetcher : public Base
     }
 
     /** Notify functions are not used by this prefetcher. */
-    void notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi)
-        override {};
-    // void notifyFill(const PacketPtr &pkt) override{};
+    void notify(const PacketPtr &pkt, const PrefetchInfo &pfi) override {};
+    void notifyFill(const PacketPtr &pkt) override{};
 
   private:
 
     /** Array of probe listeners */
-    std::vector<ProbeListenerPtr<>> listeners;
+    std::vector<ProbeListener *> listeners;
 
     /** Pointer to the CPU object that contains the FTQ */
     BaseCPU *cpu;
-
-    /** Pointer to the cache it is attached to */
-    BaseCache *cache;
 
     /** For testing purposes */
     const bool transFunctional;

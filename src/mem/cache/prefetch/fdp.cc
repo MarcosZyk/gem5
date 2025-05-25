@@ -102,8 +102,8 @@ FetchDirectedPrefetcher::notifyPfAddr(Addr addr, bool virtual_addr)
 
     stats.pfPacketsCreated++;
 
-    if (cacheSnoop && (cache->inCache(pkt->getAddr(), pkt->isSecure())
-                || (cache->inMissQueue(pkt->getAddr(), pkt->isSecure())))) {
+    if (cacheSnoop && (inCache(pkt->getAddr(), pkt->isSecure())
+                || (inMissQueue(pkt->getAddr(), pkt->isSecure())))) {
         stats.pfInCache++;
         DPRINTF(HWPrefetch, "Drop Packet. In Cache / MSHR\n");
         delete pkt;
@@ -177,7 +177,7 @@ FetchDirectedPrefetcher::translateFunctional(RequestPtr req)
         return false;
     }
 
-    auto tc = system->threads[req->contextId()];
+    auto tc = cache->system->threads[req->contextId()];
 
     DPRINTF(HWPrefetch, "%s Try trans of pc %#x\n",
                                 mmu->name(), req->getVaddr());
@@ -226,12 +226,12 @@ FetchDirectedPrefetcher::regProbeListeners()
     }
     typedef ProbeListenerArgFunc<o3::FetchTargetPtr> FetchTargetListener;
     listeners.push_back(
-            cpu->getProbeManager()->connect<FetchTargetListener>("FTQInsert",
+            new FetchTargetListener(cpu->getProbeManager(), "FTQInsert",
                 [this](const o3::FetchTargetPtr &ft)
                     { notifyFTQInsert(ft); }));
 
     listeners.push_back(
-            cpu->getProbeManager()->connect<FetchTargetListener>("FTQRemove",
+            new FetchTargetListener(cpu->getProbeManager(), "FTQRemove",
                 [this](const o3::FetchTargetPtr &ft)
                     { notifyFTQRemove(ft); }));
 

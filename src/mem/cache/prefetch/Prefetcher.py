@@ -738,8 +738,3 @@ class FetchDirectedPrefetcher(BasePrefetcher):
     cpu = Param.BaseCPU(Parent.any, "The CPU to train the predictor")
 
     latency = Param.Cycles(1, "Latency for generated prefetches")
-
-    translate_functional = Param.Bool(
-        False,
-        "Perfrom functional translations instead of timing (for testing)",
-    )

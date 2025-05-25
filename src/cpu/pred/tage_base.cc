@@ -66,6 +66,7 @@ TAGEBase::TAGEBase(const TAGEBaseParams &p)
      numUseAltOnNa(p.numUseAltOnNa),
      useAltOnNaBits(p.useAltOnNaBits),
      maxNumAlloc(p.maxNumAlloc),
+     takenOnlyHistory(p.takenOnlyHistory),
      noSkip(p.noSkip),
      speculativeHistUpdate(p.speculativeHistUpdate),
      instShiftAmt(p.instShiftAmt),

@@ -121,9 +121,10 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--disable-fdp",
-    action="store_true",
-    help="Disable FDP to get evaluate baseline",
+    "--prefetcher",
+    type=str,
+    help="The prefetcher to be used.",
+    choices=["None", "LTAGE", "FDP"]
 )
 
 parser.add_argument(
@@ -223,13 +224,12 @@ else:  # Variable length ISA (x86) must search every byte
 cpu.branchPred = LTAGE()
 
 # Finally the `decoupledFrontEnd` parameter enables the decoupled front-end.
-# Disable it to get the baseline.
 cpu.decoupledFrontEnd = True
 
 
 print(
     "Running {} on {}, FDP {}".format(
-        args.workload, args.isa, "disabled" if args.disable_fdp else "enabled"
+        args.workload, args.isa, args.prefetcher
     )
 )
 
@@ -242,16 +242,18 @@ print(
 # Create the icache and the prefetcher
 icache = L1ICache(size="32kB")
 
-if args.disable_fdp:
-    # If FDP is disabled we use the TaggedPrefetcher (Next-Line Prefetcher)
+if args.prefetcher == "None":
+    pass
+elif args.prefetcher == "LTAGE":
     icache.prefetcher = TaggedPrefetcher()
-else:
+elif args.prefetcher == "FDP":
     ## Setup the FDP prefetcher
     icache.prefetcher = FetchDirectedPrefetcher(
-        use_virtual_addresses=True,
+        # use_virtual_addresses=True,
         # The FDP prefetcher needs to know to which CPU to listent to.
         cpu=cpu,
     )
+
 
 # Register the MMU to allow address translation
 icache.prefetcher.registerMMU(processor.cores[0].core.mmu)

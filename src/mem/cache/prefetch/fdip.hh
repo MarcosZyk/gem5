@@ -23,102 +23,11 @@ namespace prefetch
 class FetchDirectedInstructionPrefetcher : public Base
 {
 
-  public:
-    FetchDirectedInstructionPrefetcher(const FetchDirectedInstructionPrefetcherParams &p);
-    ~FetchDirectedInstructionPrefetcher() = default;
-
-
-    /** Base class overrides */
-    void regProbeListeners() override;
-    void setCache(BaseCache *_cache) override { cache = _cache; }
-
-    /** Gets a packet from the prefetch queue to be prefetched. */
-    PacketPtr getPacket() override;
-
-    Tick nextPrefetchReadyTime() const override
-    {
-        return pfq.empty() ? MaxTick : pfq.front().readyTime;
-    }
-
-  private:
-
-    /** Array of probe listeners */
-    std::vector<ProbeListener *> listeners;
-
-    /** Pointer to the CPU object that contains the FTQ */
-    BaseCPU *cpu;
-
-    /** Pointer to the cache it is attached to */
-    BaseCache *cache;
-
-    /** The latency of the prefetcher */
-    const unsigned int latency;
-
-    /** Probe the cache before a prefetch gets inserted into the PFQ*/
-    const bool cacheSnoop;
-
-    /** The prefetch queue entry objects */
-    struct PFQEntry
-    {
-        PFQEntry(uint64_t _addr, PacketPtr p, Tick t)
-            : addr(_addr), pkt(p), readyTime(t) {}
-
-        /** The virtual address. Used to scan for redundand prefetches.*/
-        uint64_t addr;
-
-        /** The packet that will be sent to the cache. */
-        PacketPtr pkt;
-
-        /** The time when the prefetch is ready to be sent to the cache. */
-        Tick readyTime;
-        bool operator==(const int& a) const {
-            return this->addr == a;
-        }
-    };
-
-    /** The prefetch queue */
-    std::list<PFQEntry> pfq;
-
-
-    /** Notify functions are not used by this prefetcher. */
-    void
-    notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi)
-    override
-    {}
-
-    /** Notifies the prefetcher that a new fetch target was
-     * inserted into the FTQ. */
-    void notifyFTQInsert(const o3::FetchTargetPtr& ft);
-
-    /** Notifies the prefetcher that a fetch target was
-     * removed from the FTQ */
-    void notifyFTQRemove(const o3::FetchTargetPtr& ft);
-
-    /** Adds a prefetch candidate to the prefetch queue.
-     * Performs the translation of the virtual address to a physical address,
-     * probes the cache if enabled, and creates a prefetch packet which is
-     * inserted into the prefetch queue.
-     * @param addr is the start address of the fetch target
-     * @param va is true if the address is a virtual address
-     * */
-    void notifyPfAddr(Addr addr, bool va=false);
-
-    /** Creates a prefetch request for the given virtual address. */
-    RequestPtr createPrefetchRequest(Addr vaddr);
-
-    /** Creates a prefetch packet for the given address. */
-    PacketPtr createPrefetchPacket(Addr addr, bool va=false);
-
-    /** Performs a functional translation of the incomming packet by useing
-     * the CPU's TLB. */
-    bool translateFunctional(RequestPtr req);
-
-
+  // referred to queued.hh
   protected:
-    struct Stats : public statistics::Group
+    struct FDIPStats : public statistics::Group
     {
-        Stats(statistics::Group *parent);
-        statistics::Scalar fdipInsertions;
+        FDIPStats(statistics::Group *parent);
 
         statistics::Scalar pfIdentified;
         statistics::Scalar pfInCache;
@@ -126,9 +35,69 @@ class FetchDirectedInstructionPrefetcher : public Base
         statistics::Scalar pfPacketsCreated;
         statistics::Scalar pfCandidatesAdded;
 
-        statistics::Scalar translationFail;
-        statistics::Scalar translationSuccess;
-    } stats;
+    } statsFDIP;
+
+
+  public:
+    FetchDirectedInstructionPrefetcher(const FetchDirectedInstructionPrefetcherParams &p);
+    ~FetchDirectedInstructionPrefetcher() = default;
+
+    void regProbeListeners() override;
+
+    void setCache(BaseCache *belonged_cache) override { cache = belonged_cache; }
+
+    PacketPtr getPacket() override;
+
+    Tick nextPrefetchReadyTime() const override
+    {
+        return prefetchQueue.empty() ? MaxTick : prefetchQueue.front().readyTime;
+    }
+
+  private:
+
+    /** Listening events */
+    std::vector<ProbeListener *> listeners;
+
+    /** Use its probeManager to register listener */
+    BaseCPU *cpu;
+
+    /** Used to check block existence */
+    BaseCache *cache;
+
+    /** The latency of prefetch operation */
+    const unsigned int latency;
+
+    struct PFQEntry
+    {
+        PFQEntry(uint64_t addr, PacketPtr p, Tick t)
+            : targetAddress(addr), cacheReqPackage(p), readyTime(t) {}
+
+        uint64_t targetAddress;
+
+        PacketPtr cacheReqPackage;
+
+        /** Send cacheReqPackage to cache at this time. */
+        Tick readyTime;
+
+        bool operator==(const int& that_address) const {
+            return this->targetAddress == that_address;
+        }
+    };
+
+    std::list<PFQEntry> prefetchQueue;
+
+    void
+    notify(const CacheAccessProbeArg &acc, const PrefetchInfo &pfi)
+    override
+    {}
+
+    /** When a new fetch target is inserted into the FTQ, sync it to PFQ. */
+    void notifyFTQInsert(const o3::FetchTargetPtr& fetch_target);
+
+    PacketPtr createPrefetchPacket(Addr block_address);
+
+    /** Current implementation directly prefetch from memory. Therefore, translation is needed. */
+    bool translateVirtualAddress(RequestPtr req);
 };
 
 } // namespace prefetch

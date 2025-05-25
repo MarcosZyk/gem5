@@ -49,7 +49,6 @@
 #include "cpu/o3/limits.hh"
 #include "sim/probe/probe.hh"
 
-#define FDIP
 namespace gem5
 {
 

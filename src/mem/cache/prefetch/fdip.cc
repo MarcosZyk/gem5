@@ -12,111 +12,80 @@ namespace gem5
 namespace prefetch
 {
 
+FetchDirectedInstructionPrefetcher::FDIPStats::FDIPStats(statistics::Group *parent)
+    : statistics::Group(parent),
+    ADD_STAT(pfIdentified, statistics::units::Count::get(),
+                "number of prefetches identified."),
+    ADD_STAT(pfInCache, statistics::units::Count::get(),
+                "number of prefetches hit in in cache"),
+    ADD_STAT(pfInCachePrefetched, statistics::units::Count::get(),
+                "number of prefetches hit in cache but prefetched"),
+    ADD_STAT(pfPacketsCreated, statistics::units::Count::get(),
+                "number of prefetch packets created"),
+    ADD_STAT(pfCandidatesAdded, statistics::units::Count::get(),
+                "Number of perfetch candidates added to the prefetch queue")
+{
+}
+
 FetchDirectedInstructionPrefetcher::FetchDirectedInstructionPrefetcher(
                                 const FetchDirectedInstructionPrefetcherParams &p)
     : Base(p),
       cpu(p.cpu),
       cache(nullptr),
-      latency(cyclesToTicks(p.latency)), cacheSnoop(true),
-      stats(this)
+      latency(cyclesToTicks(p.latency)),
+      statsFDIP(this)
 {
 }
 
 
 void
-FetchDirectedInstructionPrefetcher::notifyFTQInsert(const o3::FetchTargetPtr& ft)
+FetchDirectedInstructionPrefetcher::notifyFTQInsert(const o3::FetchTargetPtr& fetch_target)
 {
-    Addr blkAddr = blockAddress(ft->startAddress());
-    notifyPfAddr(blkAddr, true);
-}
+    Addr block_address = blockAddress(fetch_target->startAddress());
 
-
-void
-FetchDirectedInstructionPrefetcher::notifyFTQRemove(const o3::FetchTargetPtr& ft)
-{
-}
-
-
-void
-FetchDirectedInstructionPrefetcher::notifyPfAddr(Addr addr, bool virtual_addr)
-{
-    Addr blk_addr = blockAddress(addr);
-
-    // Check if the address is already in the prefetch queue
-    std::list<PFQEntry>::iterator it = std::find(pfq.begin(),
-                                pfq.end(), blk_addr);
-    if (it != pfq.end()) {
-        DPRINTF(HWPrefetch, "%#x already in prefetch_queue\n", blk_addr);
+    // filter out req with existing address in the prefetch queue
+    std::list<PFQEntry>::iterator iterator = std::find(prefetchQueue.begin(), prefetchQueue.end(), block_address);
+    if (iterator == prefetchQueue.end()) {
+        statsFDIP.pfIdentified++;
+    } else {
+        DPRINTF(FDIP, "%#x already exists in prefetch_queue\n", block_address);
         return;
     }
 
-    stats.pfIdentified++;
-
-    // Create the packet for this address
-    PacketPtr pkt = createPrefetchPacket(blk_addr, virtual_addr);
-
-    if (!pkt) {
-        DPRINTF(HWPrefetch, "Fail to create packet\n");
-        delete pkt;
+    PacketPtr prefetch_packet = createPrefetchPacket(block_address);
+    if (prefetch_packet) {
+        statsFDIP.pfPacketsCreated++;
+    } else {
+        DPRINTF(FDIP, "Fail to create packet\n");
+        delete prefetch_packet;
         return;
     }
 
-    stats.pfPacketsCreated++;
-
-    if (cacheSnoop && (cache->inCache(pkt->getAddr(), pkt->isSecure())
-                || (cache->inMissQueue(pkt->getAddr(), pkt->isSecure())))) {
-        stats.pfInCache++;
-        DPRINTF(HWPrefetch, "Drop Packet. In Cache / MSHR\n");
-        delete pkt;
+    if ((cache->inCache(prefetch_packet->getAddr(), prefetch_packet->isSecure())
+                || (cache->inMissQueue(prefetch_packet->getAddr(), prefetch_packet->isSecure())))) {
+        statsFDIP.pfInCache++;
+        DPRINTF(FDIP, "%#x already exists in cache/mshr\n", block_address);
+        delete prefetch_packet;
         return;
     }
 
     Tick t = curTick() + latency;
-    DPRINTF(HWPrefetch, "Addr: %#x Add packet to PFQ. pkt PA:%#x, PFQ sz:%i\n",
-                        blk_addr, pkt->getAddr(), pfq.size());
-
-    stats.pfCandidatesAdded++;
-    pfq.push_back(PFQEntry(blk_addr, pkt, t));
-}
-
-
-RequestPtr
-FetchDirectedInstructionPrefetcher::createPrefetchRequest(Addr vaddr)
-{
-    RequestPtr req = std::make_shared<Request>(
-            vaddr, blkSize, 0, requestorId, vaddr, 0);
-    req->setFlags(Request::PREFETCH);
-    return req;
+    prefetchQueue.push_back(PFQEntry(block_address, prefetch_packet, t));
+    statsFDIP.pfCandidatesAdded++;
 }
 
 
 PacketPtr
-FetchDirectedInstructionPrefetcher::createPrefetchPacket(Addr addr, bool virtual_addr)
+FetchDirectedInstructionPrefetcher::createPrefetchPacket(Addr block_address)
 {
-    /* Create a prefetch memory request */
-    RequestPtr req = nullptr;
-    Flags flags = Request::INST_FETCH|Request::PREFETCH;
-
-    if (virtual_addr) {
-        // The address is virtual -> we need translate first
-        req = std::make_shared<Request>(
-                addr, blkSize, flags, requestorId, addr, 0);
+    /* Packet is based on mem request */
+    Flags flags = Request::INST_FETCH | Request::PREFETCH;
+    RequestPtr req = std::make_shared<Request>(block_address, blkSize, flags, requestorId, block_address, 0);
 
 
-        // Translate the address from virtual to physical using
-        // the functional translation function.
-        // Note: This of course a hack and is not how it is in a real system.
-        // Using functional tranlation underestimate the latency of the
-        // translation and the page walk.
-        // TODO: Add timing translation!
-        if (!translateFunctional(req)) {
-            return nullptr;
-        }
-
-    } else {
-        // The adddress is physical -> no translation needed.
-        req = std::make_shared<Request>(
-                addr, blkSize, flags, requestorId);
+    // CPU pipeline works based on virtual addresses, which is in FTQ.
+    if (!translateVirtualAddress(req)) {
+        return nullptr;
     }
 
     if (req->isUncacheable()) {
@@ -124,6 +93,7 @@ FetchDirectedInstructionPrefetcher::createPrefetchPacket(Addr addr, bool virtual
     }
 
     req->taskId(context_switch_task_id::Prefetcher);
+
     PacketPtr pkt = new Packet(req, MemCmd::HardPFReq);
     pkt->allocate();
 
@@ -132,47 +102,16 @@ FetchDirectedInstructionPrefetcher::createPrefetchPacket(Addr addr, bool virtual
 
 
 bool
-FetchDirectedInstructionPrefetcher::translateFunctional(RequestPtr req)
+FetchDirectedInstructionPrefetcher::translateVirtualAddress(RequestPtr req)
 {
     if (mmu == nullptr) {
         return false;
     }
 
-    auto tc = cache->system->threads[req->contextId()];
+    auto thread_context = cache->system->threads[req->contextId()];
 
-    DPRINTF(HWPrefetch, "%s Try trans of pc %#x\n",
-                                mmu->name(), req->getVaddr());
-    Fault fault = mmu->translateFunctional(req, tc, BaseMMU::Read);
-    if (fault == NoFault) {
-        DPRINTF(HWPrefetch, "%s Translation of vaddr %#x succeeded: "
-                        "paddr %#x \n", mmu->name(), req->getVaddr(),
-                        req->getPaddr());
-
-        stats.translationSuccess++;
-        return true;
-    }
-    stats.translationFail++;
-    return false;
-}
-
-
-PacketPtr
-FetchDirectedInstructionPrefetcher::getPacket()
-{
-    if (pfq.size() == 0)
-    {
-        return nullptr;
-    }
-    PacketPtr pkt = pfq.front().pkt;
-
-    DPRINTF(HWPrefetch, "Issue Prefetch to: pkt:%#x, PC:%#x, PFQ size:%i\n",
-                        pkt->getAddr(), pfq.front().addr, pfq.size());
-
-    pfq.pop_front();
-
-    prefetchStats.pfIssued++;
-    issuedPrefetches++;
-    return pkt;
+    Fault fault = mmu->translateFunctional(req, thread_context, BaseMMU::Read);
+    return fault == NoFault;
 }
 
 
@@ -191,33 +130,29 @@ FetchDirectedInstructionPrefetcher::regProbeListeners()
                 [this](const o3::FetchTargetPtr &ft)
                     { notifyFTQInsert(ft); }));
 
-    listeners.push_back(
-            new FetchTargetListener(cpu->getProbeManager(), "FTQRemove",
-                [this](const o3::FetchTargetPtr &ft)
-                    { notifyFTQRemove(ft); }));
+    // todo implement sync for FTQ Removal; currently, waste the prefetch
 
 }
 
 
-FetchDirectedInstructionPrefetcher::Stats::Stats(statistics::Group *parent)
-    : statistics::Group(parent),
-    ADD_STAT(fdipInsertions, statistics::units::Count::get(),
-            "Number of notifications from an insertion in the FTQ"),
-    ADD_STAT(pfIdentified, statistics::units::Count::get(),
-            "number of prefetches identified."),
-    ADD_STAT(pfInCache, statistics::units::Count::get(),
-            "number of prefetches hit in in cache"),
-    ADD_STAT(pfInCachePrefetched, statistics::units::Count::get(),
-            "number of prefetches hit in cache but prefetched"),
-    ADD_STAT(pfPacketsCreated, statistics::units::Count::get(),
-            "number of prefetch packets created"),
-    ADD_STAT(pfCandidatesAdded, statistics::units::Count::get(),
-            "Number of perfetch candidates added to the prefetch queue"),
-    ADD_STAT(translationFail, statistics::units::Count::get(),
-             "Number of prefetches that failed translation"),
-    ADD_STAT(translationSuccess, statistics::units::Count::get(),
-             "Number of prefetches that succeeded translation")
+PacketPtr
+FetchDirectedInstructionPrefetcher::getPacket()
 {
+    // This function is used for prefetch issuing.
+    if (prefetchQueue.size() == 0)
+    {
+        return nullptr;
+    }
+    PacketPtr pkt = prefetchQueue.front().cacheReqPackage;
+
+    DPRINTF(FDIP, "Issue Prefetch pkt:%#x at PC:%#x\n", pkt->getAddr(), prefetchQueue.front().targetAddress);
+
+    prefetchQueue.pop_front();
+
+    prefetchStats.pfIssued++;
+    issuedPrefetches++;
+
+    return pkt;
 }
 
 } // namespace prefetch

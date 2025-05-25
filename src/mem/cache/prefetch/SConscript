@@ -57,5 +57,3 @@ Source('spatio_temporal_memory_streaming.cc')
 Source('stride.cc')
 Source('tagged.cc')
 Source('fdip.cc')
-
-DebugFlag('FDIP')

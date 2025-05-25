@@ -224,10 +224,7 @@ cpu.branchPred = LTAGE()
 
 # Finally the `decoupledFrontEnd` parameter enables the decoupled front-end.
 # Disable it to get the baseline.
-if args.disable_fdp:
-    cpu.decoupledFrontEnd = False
-else:
-    cpu.decoupledFrontEnd = True
+cpu.decoupledFrontEnd = True
 
 
 print(

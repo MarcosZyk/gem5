@@ -12,6 +12,20 @@ namespace gem5
 namespace prefetch
 {
 
+
+
+
+FetchDirectedInstructionPrefetcher::FetchDirectedInstructionPrefetcher(
+                                const FetchDirectedInstructionPrefetcherParams &p)
+    : Base(p),
+      cpu(p.cpu),
+      cache(nullptr),
+      latency(cyclesToTicks(p.latency)),
+      statsFDIP(this)
+{
+}
+
+
 FetchDirectedInstructionPrefetcher::FDIPStats::FDIPStats(statistics::Group *parent)
     : statistics::Group(parent),
     ADD_STAT(pfIdentified, statistics::units::Count::get(),
@@ -26,17 +40,6 @@ FetchDirectedInstructionPrefetcher::FDIPStats::FDIPStats(statistics::Group *pare
                 "Number of perfetch candidates added to the prefetch queue")
 {
 }
-
-FetchDirectedInstructionPrefetcher::FetchDirectedInstructionPrefetcher(
-                                const FetchDirectedInstructionPrefetcherParams &p)
-    : Base(p),
-      cpu(p.cpu),
-      cache(nullptr),
-      latency(cyclesToTicks(p.latency)),
-      statsFDIP(this)
-{
-}
-
 
 void
 FetchDirectedInstructionPrefetcher::notifyFTQInsert(const o3::FetchTargetPtr& fetch_target)

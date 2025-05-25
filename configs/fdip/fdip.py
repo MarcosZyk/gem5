@@ -88,7 +88,7 @@ parser.add_argument(
     "--prefetcher",
     type=str,
     help="The prefetcher to be used.",
-    choices=["None", "TAGGED", "FDP"]
+    choices=["None", "NL", "FDIP"]
 )
 
 parser.add_argument(

@@ -23,21 +23,6 @@ namespace prefetch
 class FetchDirectedInstructionPrefetcher : public Base
 {
 
-  // referred to queued.hh
-  protected:
-    struct FDIPStats : public statistics::Group
-    {
-        FDIPStats(statistics::Group *parent);
-
-        statistics::Scalar pfIdentified;
-        statistics::Scalar pfInCache;
-        statistics::Scalar pfInCachePrefetched;
-        statistics::Scalar pfPacketsCreated;
-        statistics::Scalar pfCandidatesAdded;
-
-    } statsFDIP;
-
-
   public:
     FetchDirectedInstructionPrefetcher(const FetchDirectedInstructionPrefetcherParams &p);
     ~FetchDirectedInstructionPrefetcher() = default;
@@ -98,6 +83,21 @@ class FetchDirectedInstructionPrefetcher : public Base
 
     /** Current implementation directly prefetch from memory. Therefore, translation is needed. */
     bool translateVirtualAddress(RequestPtr req);
+
+
+    // referred to queued.hh
+  protected:
+    struct FDIPStats : public statistics::Group
+    {
+        FDIPStats(statistics::Group *parent);
+
+        statistics::Scalar pfIdentified;
+        statistics::Scalar pfInCache;
+        statistics::Scalar pfInCachePrefetched;
+        statistics::Scalar pfPacketsCreated;
+        statistics::Scalar pfCandidatesAdded;
+
+    } statsFDIP;
 };
 
 } // namespace prefetch

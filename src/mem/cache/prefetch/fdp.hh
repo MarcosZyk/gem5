@@ -68,6 +68,7 @@ class FetchDirectedPrefetcher : public Base
 
     /** Base class overrides */
     void regProbeListeners() override;
+    void setCache(BaseCache *_cache) override { cache = _cache; }
 
     /** Gets a packet from the prefetch queue to be prefetched. */
     PacketPtr getPacket() override;
@@ -84,6 +85,9 @@ class FetchDirectedPrefetcher : public Base
 
     /** Pointer to the CPU object that contains the FTQ */
     BaseCPU *cpu;
+
+    /** Pointer to the cache it is attached to */
+    BaseCache *cache;
 
     /** For testing purposes */
     const bool transFunctional;

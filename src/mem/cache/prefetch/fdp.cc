@@ -102,8 +102,8 @@ FetchDirectedPrefetcher::notifyPfAddr(Addr addr, bool virtual_addr)
 
     stats.pfPacketsCreated++;
 
-    if (cacheSnoop && (inCache(pkt->getAddr(), pkt->isSecure())
-                || (inMissQueue(pkt->getAddr(), pkt->isSecure())))) {
+    if (cacheSnoop && (cache->inCache(pkt->getAddr(), pkt->isSecure())
+                || (cache->inMissQueue(pkt->getAddr(), pkt->isSecure())))) {
         stats.pfInCache++;
         DPRINTF(HWPrefetch, "Drop Packet. In Cache / MSHR\n");
         delete pkt;

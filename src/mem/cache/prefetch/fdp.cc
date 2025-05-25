@@ -55,6 +55,7 @@ FetchDirectedPrefetcher::FetchDirectedPrefetcher(
                                 const FetchDirectedPrefetcherParams &p)
     : Base(p),
       cpu(p.cpu),
+      cache(nullptr),
       latency(cyclesToTicks(p.latency)), cacheSnoop(true),
       stats(this)
 {

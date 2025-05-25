@@ -51,7 +51,7 @@ namespace prefetch
 {
 
 FetchDirectedPrefetcher::FetchDirectedPrefetcher(
-                                const FetchDirectedPrefetcherParams &p)
+                                FetchDirectedPrefetcherParams &p)
     : Base(p),
       cpu(p.cpu),
       cache(nullptr),

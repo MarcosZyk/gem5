@@ -61,7 +61,7 @@ class FetchDirectedPrefetcher : public Base
 {
 
   public:
-    FetchDirectedPrefetcher(const FetchDirectedPrefetcherParams &p);
+    FetchDirectedPrefetcher(FetchDirectedPrefetcherParams &p);
     ~FetchDirectedPrefetcher() = default;
 
 

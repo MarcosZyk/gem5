@@ -77,10 +77,6 @@ class FetchDirectedPrefetcher : public Base
         return pfq.empty() ? MaxTick : pfq.front().readyTime;
     }
 
-    /** Notify functions are not used by this prefetcher. */
-    void notify(const PacketPtr &pkt, const PrefetchInfo &pfi) override {};
-    void notifyFill(const PacketPtr &pkt) override{};
-
   private:
 
     /** Array of probe listeners */

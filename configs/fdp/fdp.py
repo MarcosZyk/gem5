@@ -244,8 +244,8 @@ icache = L1ICache(size="32kB")
 
 if args.prefetcher == "None":
     pass
-elif args.prefetcher == "LTAGE":
-    icache.prefetcher = TaggedPrefetcher()
+elif args.prefetcher == "TAGGED":
+    icache.prefetcher = TaggedPrefetcher(degree=1)
 elif args.prefetcher == "FDP":
     ## Setup the FDP prefetcher
     icache.prefetcher = FetchDirectedPrefetcher(

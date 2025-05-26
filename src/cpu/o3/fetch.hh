@@ -45,7 +45,7 @@
 #include "arch/generic/mmu.hh"
 #include "base/random.hh"
 #include "base/statistics.hh"
-#include "cpu/o3/bac.hh"
+#include "cpu/o3/ftg.hh"
 #include "cpu/o3/comm.hh"
 #include "cpu/o3/dyn_inst_ptr.hh"
 #include "cpu/o3/ftq.hh"

@@ -1,5 +1,5 @@
-#ifndef __CPU_O3_BAC_HH__
-#define __CPU_O3_BAC_HH__
+#ifndef __CPU_O3_FTG_HH__
+#define __CPU_O3_FTG_HH__
 
 #include <list>
 
@@ -264,4 +264,4 @@ class FTG
 } // namespace o3
 } // namespace gem5
 
-#endif // __CPU_O3_BAC_HH__
+#endif // __CPU_O3_FTG_HH__

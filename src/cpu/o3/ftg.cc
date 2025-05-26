@@ -1,4 +1,4 @@
-#include "cpu/o3/bac.hh"
+#include "cpu/o3/ftg.hh"
 
 #include <algorithm>
 
@@ -9,7 +9,7 @@
 #include "cpu/o3/ftq.hh"
 #include "cpu/o3/limits.hh"
 #include "debug/Activity.hh"
-#include "debug/BAC.hh"
+#include "debug/FTG.hh"
 #include "debug/Branch.hh"
 #include "debug/Drain.hh"
 #include "debug/Fetch.hh"
@@ -200,12 +200,12 @@ FTG::checkStall(ThreadID tid) const
     bool ret_val = false;
 
     if (stalls[tid].fetch) {
-        DPRINTF(BAC,"[tid:%i] Fetch stall detected.\n",tid);
+        DPRINTF(FTG,"[tid:%i] Fetch stall detected.\n",tid);
         ret_val = true;
     }
 
     if (stalls[tid].bpu) {
-        DPRINTF(BAC,"[tid:%i] BPU stall detected.\n",tid);
+        DPRINTF(FTG,"[tid:%i] BPU stall detected.\n",tid);
         ret_val = true;
     }
 
@@ -253,7 +253,7 @@ FTG::checkAndUpdateBPUSignals(ThreadID tid)
     // Check squash signals from commit.
     if (fromCommit->commitInfo[tid].squash) {
 
-        DPRINTF(BAC, "[tid:%i] Squashing from commit. PC = %s\n",
+        DPRINTF(FTG, "[tid:%i] Squashing from commit. PC = %s\n",
                         tid, *fromCommit->commitInfo[tid].pc);
 
         // In any case, squash the FTQ and the branch histories in the
@@ -275,14 +275,14 @@ FTG::checkAndUpdateBPUSignals(ThreadID tid)
         } else {
             bpu->squash(fromCommit->commitInfo[tid].doneSeqNum, tid);
             if (fromCommit->commitInfo[tid].mispredictInst) {
-                DPRINTF(BAC, "[tid:%i] Squashing due to mispredict of "
+                DPRINTF(FTG, "[tid:%i] Squashing due to mispredict of "
                         "non-control instruction: %s\n",tid,
                         fromCommit->commitInfo[tid]
                             .mispredictInst->staticInst->disassemble(
                                 fromCommit->commitInfo[tid]
                             .mispredictInst->pcState().instAddr()));
             } else {
-                DPRINTF(BAC, "[tid:%i] Squashing due to "
+                DPRINTF(FTG, "[tid:%i] Squashing due to "
                 "mispredict of non-control instruction: %s\n",tid);
             }
             statsFTG.noBranchMisspredict++;
@@ -324,7 +324,7 @@ FTG::checkAndUpdateBPUSignals(ThreadID tid)
     // Check squash signals from fetch.
     if (fromFetch->fetchInfo[tid].squash
         && ftgStatus[tid] != Squashing) {
-        DPRINTF(BAC, "Squashing from fetch with PC = %s\n",
+        DPRINTF(FTG, "Squashing from fetch with PC = %s\n",
                 *fromFetch->fetchInfo[tid].nextPC);
 
         // Squash unless we're already squashing
@@ -350,7 +350,7 @@ FTG::checkSignalsAndUpdate(ThreadID tid)
     // Check stalls
     if (stalls[tid].drain) {
         assert(cpu->isDraining());
-        DPRINTF(BAC,"[tid:%i] Drain stall detected.\n",tid);
+        DPRINTF(FTG,"[tid:%i] Drain stall detected.\n",tid);
         // Squash BPU histories and disable the FTQ.
         squashBpuHistories(tid);
         ftq->squash(tid);
@@ -368,7 +368,7 @@ FTG::checkSignalsAndUpdate(ThreadID tid)
     // If at this point the FTQ is still invalid we need to wait for
     // A resteer/squash signal.
     if (!ftq->isValid(tid) && ftgStatus[tid] != Idle) {
-        DPRINTF(BAC, "[tid:%i] FTQ is invalid. Wait for resteer.\n", tid);
+        DPRINTF(FTG, "[tid:%i] FTQ is invalid. Wait for resteer.\n", tid);
 
         ftgStatus[tid] = Idle;
         return true;
@@ -377,13 +377,13 @@ FTG::checkSignalsAndUpdate(ThreadID tid)
     // Check if the FTQ got blocked or unblocked
     if ((ftgStatus[tid] == Running) && ftq->isLocked(tid)) {
 
-        DPRINTF(BAC, "[tid:%i] FTQ is locked\n", tid);
+        DPRINTF(FTG, "[tid:%i] FTQ is locked\n", tid);
         ftgStatus[tid] = FTQLocked;
         return true;
     }
     if ((ftgStatus[tid] == FTQLocked) && !ftq->isLocked(tid)) {
 
-        DPRINTF(BAC, "[tid:%i] FTQ not locked anymore -> Running\n", tid);
+        DPRINTF(FTG, "[tid:%i] FTQ not locked anymore -> Running\n", tid);
         ftgStatus[tid] = Running;
         return true;
     }
@@ -391,7 +391,7 @@ FTG::checkSignalsAndUpdate(ThreadID tid)
     // Check if the FTQ became free in that cycle.
     if ((ftgStatus[tid] == FTQFull) && !ftq->isFull(tid)) {
 
-        DPRINTF(BAC, "[tid:%i] FTQ not full anymore -> Running\n", tid);
+        DPRINTF(FTG, "[tid:%i] FTQ not full anymore -> Running\n", tid);
         ftgStatus[tid] = Running;
         return true;
     }
@@ -399,7 +399,7 @@ FTG::checkSignalsAndUpdate(ThreadID tid)
     if (ftgStatus[tid] == Squashing) {
 
         // Switch status to running after squashing FTQ and setting the PC.
-        DPRINTF(BAC, "[tid:%i] Done squashing, switching to running.\n", tid);
+        DPRINTF(FTG, "[tid:%i] Done squashing, switching to running.\n", tid);
         ftgStatus[tid] = Running;
         return true;
     }
@@ -409,7 +409,7 @@ FTG::checkSignalsAndUpdate(ThreadID tid)
     if (ftq->isValid(tid) &&
             ((ftgStatus[tid] == Idle) || (ftgStatus[tid] == Blocked))) {
 
-        DPRINTF(BAC, "[tid:%i] Attempt to run\n", tid);
+        DPRINTF(FTG, "[tid:%i] Attempt to run\n", tid);
         ftgStatus[tid] = Running;
         return true;
     }
@@ -424,7 +424,7 @@ void
 FTG::squashBpuHistories(ThreadID tid)
 {
 
-    DPRINTF(BAC, "%s(tid:%i): FTQ sz: %i\n", tid, __func__, ftq->size(tid));
+    DPRINTF(FTG, "%s(tid:%i): FTQ sz: %i\n", tid, __func__, ftq->size(tid));
 
     unsigned n_fts = ftq->size(tid);
     if (n_fts == 0) return;
@@ -448,7 +448,7 @@ void
 FTG::squash(const PCStateBase &new_pc, ThreadID tid)
 {
 
-    DPRINTF(BAC, "[tid:%i] Squashing FTQ.\n", tid);
+    DPRINTF(FTG, "[tid:%i] Squashing FTQ.\n", tid);
 
     // Set status to squashing.
     ftgStatus[tid] = Squashing;
@@ -501,7 +501,7 @@ FTG::newFetchTarget(ThreadID tid, const PCStateBase &start_pc)
     auto ft = std::make_shared<FetchTarget>(start_pc,
                                             cpu->getAndIncrementFTSeq());
 
-    DPRINTF(BAC, "Create new fetch target ftn:%llu\n", ft->getFetchSeqNum());
+    DPRINTF(FTG, "Create new fetch target ftn:%llu\n", ft->getFetchSeqNum());
     statsFTG.fetchTargets++;
     return ft;
 }
@@ -609,7 +609,7 @@ FTG::generateFetchTargets(ThreadID tid, bool &status_change)
         // the PC to the next instruction.
         predict_taken = predict(tid, staticInst, curFT, *next_pc);
 
-        DPRINTF(BAC, "[tid:%i, ftn:%llu] Branch found at PC %#x "
+        DPRINTF(FTG, "[tid:%i, ftn:%llu] Branch found at PC %#x "
                 "taken?:%i, target:%#x\n",
                 tid, curFT->getFetchSeqNum(), cur_pc.instAddr(),
                 predict_taken, next_pc->instAddr());
@@ -639,7 +639,7 @@ FTG::generateFetchTargets(ThreadID tid, bool &status_change)
     // Check whether the FTQ became full. In that case block until
     // fetch has consumed one.
     if (ftq->isFull(tid)) {
-        DPRINTF(BAC, "FTQ full\n");
+        DPRINTF(FTG, "FTQ full\n");
         ftgStatus[tid] = FTQFull;
         status_change = true;
     }
@@ -661,13 +661,13 @@ FTG::generateFetchTargets(ThreadID tid, bool &status_change)
         statsFTG.branchesNotLastuOp++;
         // The target is always to itself no matter if its taken or not.
         // assert(next_pc->instAddr() == search_addr);
-        DPRINTF(BAC, "Branch detected which is not the last uOp %s. "
+        DPRINTF(FTG, "Branch detected which is not the last uOp %s. "
                     "Continue with next address.\n", cur_pc);
 
         next_pc->set(cur_pc.instAddr() + staticInst->size());
     }
 
-    DPRINTF(BAC, "[tid:%i] [fn:%llu] %i addresses searched. "
+    DPRINTF(FTG, "[tid:%i] [fn:%llu] %i addresses searched. "
             "Branch found:%i. Continue with PC:%s in next cycle\n",
             tid, curFT->getFetchSeqNum(), (search_addr - start_addr),
             branch_found, *next_pc);
@@ -698,7 +698,7 @@ FTG::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     BranchType brType = branch_prediction::getBranchType(inst);
     statsFTG.preDecUpdate[brType]++;
 
-    DPRINTF(BAC, "%s(tid:%i, sn:%lu, inst: %s, PC:%#x, FT[%llu, taken:%i, "
+    DPRINTF(FTG, "%s(tid:%i, sn:%lu, inst: %s, PC:%#x, FT[%llu, taken:%i, "
             "end:#%#x)\n", __func__, tid, seqNum,
             branch_prediction::toString(brType), pc.instAddr(), ft->getFetchSeqNum(),
             ft->isTaken(), ft->endAddress());
@@ -717,7 +717,7 @@ FTG::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
         hist = static_cast<BPredUnit::PredictorHistory*>(ft->bpu_history);
         ft->bpu_history = nullptr;
 
-        DPRINTF(BAC, "Pop history from FT:%llu => sn:%llu, PC:%#x, taken:%i, "
+        DPRINTF(FTG, "Pop history from FT:%llu => sn:%llu, PC:%#x, taken:%i, "
                 "target:%#x\n", ft->getFetchSeqNum(), seqNum, hist->pc,
                 hist->predTaken, hist->target->instAddr());
 
@@ -780,7 +780,7 @@ FTG::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     // Normal case --------------------------------------------------
     // Check if we have a valid history. If not we need to create one.
     if (hist == nullptr) {
-        DPRINTF(BAC, "[tid:%i, sn:%llu] No branch history for PC:%#x\n",
+        DPRINTF(FTG, "[tid:%i, sn:%llu] No branch history for PC:%#x\n",
                 tid, seqNum, pc.instAddr());
         statsFTG.noHistType[brType]++;
 
@@ -827,7 +827,7 @@ FTG::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
         }
     }
 
-    DPRINTF(BAC, "%s done. next PC:%s\n", __func__, pc);
+    DPRINTF(FTG, "%s done. next PC:%s\n", __func__, pc);
     return hist->predTaken;
 }
 
@@ -852,7 +852,7 @@ FTG::updatePC(const DynInstPtr &inst,
         predict_taken = updatePreDecode(tid, inst->seqNum,
                                         inst->staticInst, fetch_pc, ft);
 
-        DPRINTF(BAC, "[tid:%i] [sn:%llu] Branch at PC %#x "
+        DPRINTF(FTG, "[tid:%i] [sn:%llu] Branch at PC %#x "
                 "predicted %s to go to %s\n",
                 tid, inst->seqNum, inst->pcState().instAddr(),
                 predict_taken ? "taken" : "not taken",
@@ -885,7 +885,7 @@ FTG::updatePC(const DynInstPtr &inst,
             && (!inst->isMicroop() || inst->isLastMicroop()))
         || !ftq->isValid(tid)) {
 
-        DPRINTF(BAC, "[tid:%i][ft:%llu] Reached end of Fetch Target\n",
+        DPRINTF(FTG, "[tid:%i][ft:%llu] Reached end of Fetch Target\n",
                         tid, ft->getFetchSeqNum());
 
         ft = nullptr;

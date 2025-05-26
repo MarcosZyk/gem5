@@ -1,31 +1,13 @@
 """
-Fetch directed instruction prefetch (FDP) example
+scons build/X86/gem5.opt -j16
 
-This gem5 configuation script creates a simple simulation setup
-with a single O3 CPU model and decoupled front-end. Is serves as a
-starting point for the FDP implementation.
-As workload a simple "Hello World!" program is used.
-
-FDP is tested with the X86, Arm, RiscV isa which can be specified by
-with the `--isa` flag.
-
-Usage
------
-
-```
-scons build/ALL/gem5.opt
-./build/ALL/gem5.opt \
-    configs/example/gem5_library/fdip-hello.py \
-    --isa <isa> \
-    --prefetcher <prefetcher>
-```
+./build/X86/gem5.opt configs/fdip/fdip.py --prefetcher <prefetcher>
 """
 
 import os
 import argparse
 
 from m5.objects import (
-    # AssociativeBTB,
     LTAGE,
     TaggedPrefetcher,
     FetchDirectedInstructionPrefetcher,
@@ -51,64 +33,10 @@ from gem5.components.processors.simple_core import SimpleCore
 from gem5.simulate.simulator import Simulator
 
 
-isa_choices = {
-    "X86": ISA.X86,
-}
-
 workloads = {
-    "hello": {
-        "X86": "x86-hello64-static",
-    },
+    "hello": "x86-hello64-static",
 }
 
-
-parser = argparse.ArgumentParser(
-    description="An example configuration script to run FDP."
-)
-
-# The only positional argument accepted is the benchmark name in this script.
-
-parser.add_argument(
-    "--isa",
-    type=str,
-    default="X86",
-    help="The ISA to simulate.",
-    choices=isa_choices.keys(),
-)
-
-parser.add_argument(
-    "--workload",
-    type=str,
-    default="hello",
-    help="The workload to simulate.",
-    # choices=workloads.keys(),
-)
-
-parser.add_argument(
-    "--prefetcher",
-    type=str,
-    help="The prefetcher to be used.",
-    choices=["None", "NL", "FDIP"]
-)
-
-parser.add_argument(
-    "--arguments",
-    type=str,
-    default="",
-)
-
-args = parser.parse_args()
-
-
-# This check ensures the gem5 binary is compiled to the correct ISA target.
-# If not, an exception will be thrown.
-requires(isa_required=isa_choices[args.isa])
-
-# We use a single channel DDR3_1600 memory system
-memory = SingleChannelDDR3_1600(size="32MB")
-
-
-# We need a custom cache hierarchy to incorporate the FDP prefetcher.
 class CacheHierarchy(PrivateL1CacheHierarchy):
     def __init__(self, icache, dcache):
         super().__init__(l1i_size="", l1d_size="")
@@ -117,7 +45,6 @@ class CacheHierarchy(PrivateL1CacheHierarchy):
 
     def incorporate_cache(self, board: AbstractBoard) -> None:
 
-        # Set up the system port for functional access from the simulator.
         board.connect_system_port(self.membus.cpu_side_ports)
 
         for _, port in board.get_memory().get_mem_ports():
@@ -125,15 +52,12 @@ class CacheHierarchy(PrivateL1CacheHierarchy):
 
         cpu = board.get_processor().get_cores()[0]
 
-        # Create and connect the instruction cache
         cpu.connect_icache(self.icache.cpu_side)
         self.icache.mem_side = self.membus.cpu_side_ports
 
-        # Also the data cache
         cpu.connect_dcache(self.dcache.cpu_side)
         self.dcache.mem_side = self.membus.cpu_side_ports
 
-        # Finally the cache for the MMU page walks
         self.mmucache = MMUCache(size="8KiB")
         self.mmucache.mem_side = self.membus.cpu_side_ports
         self.mmubus = L2XBar(width=64)
@@ -145,7 +69,6 @@ class CacheHierarchy(PrivateL1CacheHierarchy):
         if board.has_coherent_io():
             self._setup_io_cache(board)
 
-        ## Connect the interrupt ports
         if board.get_processor().get_isa() == ISA.X86:
             cpu.connect_interrupt(
                 self.membus.mem_side_ports, self.membus.cpu_side_ports
@@ -154,110 +77,116 @@ class CacheHierarchy(PrivateL1CacheHierarchy):
             cpu.connect_interrupt()
 
 
-# 1. Decoupled front-end ------------------------------------------------
-# First setup the decoupled front-end. Its implemented in the O3 core.
-# Create the processor with one core
-processor = SimpleProcessor(
-    cpu_type=CPUTypes.O3, isa=isa_choices[args.isa], num_cores=1
-)
-cpu = processor.cores[0].core
+def get_args():
+    parser = argparse.ArgumentParser()
 
-# We need to configure the decoupled front-end with some specific parameters.
-# First the fetch buffer and fetch target size. We want double the size of
-# the fetch buffer to be able to run ahead of fetch
-cpu.fetchBufferSize = 16
-cpu.fetchTargetWidth = 32
-
-# The decoupled front-end leverages the BTB to find branches in the fetch
-# stream. Starting from the end of the last fetch target it will search
-# all addresses until a hit. However, for fixed size instruction architectures
-# like ARM only every n-th address must be checked.
-if args.isa == "Arm":
-    cpu.minInstSize = (
-        4  # Note Arm has a 2 byte thumb mode but we ignore it here
-    )
-elif args.isa == "RiscV":
-    cpu.minInstSize = 4  # RiscV has a 2 byte compressed mode.
-else:  # Variable length ISA (x86) must search every byte
-    cpu.minInstSize = 1
-
-
-# Use the AssociativeBTB as its the only one that supports
-# the decoupled front-end at the moment.
-# cpu.branchPred = BPLTage()
-cpu.branchPred = LTAGE()
-
-
-print(
-    "Running {} on {}, FDP {}".format(
-        args.workload, args.isa, args.prefetcher
-    )
-)
-
-
-# 2. Instruction prefetcher ---------------------------------------------
-# The decoupled front-end is only the first part.
-# Now we also need the instruction prefetcher which listens to the
-# insertions into the fetch target queue (FTQ) to issue prefetches.
-
-# Create the icache and the prefetcher
-icache = L1ICache(size="32kB")
-
-if args.prefetcher == "None":
-    pass
-elif args.prefetcher == "NL":
-    icache.prefetcher = TaggedPrefetcher(degree=1)
-elif args.prefetcher == "FDIP":
-    ## Setup the FDP prefetcher
-    icache.prefetcher = FetchDirectedInstructionPrefetcher(
-        # use_virtual_addresses=True,
-        # The FDIP needs to know to which CPU to listent to.
-        cpu=cpu,
+    parser.add_argument(
+        "--workload",
+        type=str,
+        default="hello",
+        help="The workload to simulate.",
     )
 
-
-# Register the MMU to allow address translation
-icache.prefetcher.registerMMU(processor.cores[0].core.mmu)
-
-# Incorporate the icache into the cache hierarchy.
-cache_hierarchy = CacheHierarchy(icache, L1DCache(size="32kB"))
-
-# The gem5 library simble board which can be used to run simple SE-mode
-# simulations.
-board = SimpleBoard(
-    clk_freq="3GHz",
-    processor=processor,
-    memory=memory,
-    cache_hierarchy=cache_hierarchy,
-)
-
-if os.path.exists(args.workload):
-    board.set_se_binary_workload(
-        binary=BinaryResource(args.workload),
-        arguments=args.arguments.split(" ")
-    )
-else:
-    # Here we set the workload. In this case we want to run a simple "Hello World!"
-    # program compiled to the ARM ISA. The `Resource` class will automatically
-    # download the binary from the gem5 Resources cloud bucket if it's not already
-    # present.
-    board.set_se_binary_workload(
-        # The `Resource` class reads the `resources.json` file from the gem5
-        # resources repository:
-        # https://gem5.googlesource.com/public/gem5-resource.
-        # Any resource specified in this file will be automatically retrieved.
-        # At the time of writing, this file is a WIP and does not contain all
-        # resources. Jira ticket: https://gem5.atlassian.net/browse/GEM5-1096
-        obtain_resource(workloads[args.workload][args.isa])
+    parser.add_argument(
+        "--prefetcher",
+        type=str,
+        help="The prefetcher to be used.",
+        choices=["None", "NL", "FDIP"]
     )
 
-
-# Lastly we run the simulation.
-simulator = Simulator(board=board)
-simulator.run()
-
-print(
-    "Exiting @ tick {} because {}.".format(
-        simulator.get_current_tick(), simulator.get_last_exit_event_cause()
+    parser.add_argument(
+        "--arguments",
+        type=str,
+        default="",
     )
-)
+
+    return parser.parse_args()
+
+
+def set_workload(board: SimpleBoard):
+    if os.path.exists(args.workload):
+        # local workload
+        board.set_se_binary_workload(
+            binary=BinaryResource(args.workload),
+            arguments=args.arguments.split(" ")
+        )
+    else:
+        # workload from remote gem5 resource
+        board.set_se_binary_workload(
+            obtain_resource(workloads[args.workload][args.isa])
+        )
+
+
+def get_simulator(args):
+
+    # only test on X86
+    requires(isa_required=ISA.X86)
+
+    # Configure the O3 cpu and X86 ISA and single core
+    processor = SimpleProcessor(
+        cpu_type=CPUTypes.O3, isa=ISA.X86, num_cores=1
+    )
+    cpu = processor.cores[0].core
+
+    # FTQ expanded the fetch with from another perspective, thus turn small width of each fetch.
+    cpu.fetchBufferSize = 16
+    cpu.fetchTargetWidth = 32
+
+    # Set branch predictor
+    cpu.branchPred = LTAGE()
+
+    # Create the icache and the prefetcher
+    icache = L1ICache(size="32kB")
+
+    if args.prefetcher == "None":
+        pass
+    elif args.prefetcher == "NL":
+        icache.prefetcher = TaggedPrefetcher(degree=1)
+    elif args.prefetcher == "FDIP":
+        ## Setup the FDP prefetcher
+        icache.prefetcher = FetchDirectedInstructionPrefetcher(
+            # use_virtual_addresses=True,
+            # The FDIP needs to know to which CPU to listent to.
+            cpu=cpu,
+        )
+
+    # We prefetch instruction directly from memory without L2Cache.
+    # MMU is necessary for address translation
+    icache.prefetcher.registerMMU(processor.cores[0].core.mmu)
+
+    cache_hierarchy = CacheHierarchy(icache, L1DCache(size="32kB"))
+
+    memory = SingleChannelDDR3_1600(size="32MB")
+
+    # Simple board to run simple SE-mode simulations.
+    board = SimpleBoard(
+        clk_freq="3GHz",
+        processor=processor,
+        memory=memory,
+        cache_hierarchy=cache_hierarchy,
+    )
+
+    set_workload(board)
+
+    return Simulator(board=board)
+
+
+
+if __name__ == "__main__":
+
+    args = get_args()
+    simulator = get_simulator(args)
+
+    print(
+        "Running workload [{}] with prefetcher [{}]".format(
+            args.workload, args.prefetcher
+        )
+    )
+
+    simulator.run()
+
+    print(
+        "Exiting @ tick {} because {}.".format(
+            simulator.get_current_tick(), simulator.get_last_exit_event_cause()
+        )
+    )

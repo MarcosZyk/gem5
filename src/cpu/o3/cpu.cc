@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2011-2012, 2014, 2016, 2017, 2019-2020, 2024 Arm Limited
  * Copyright (c) 2013 Advanced Micro Devices, Inc.
- * Copyright (c) 2022-2023 The University of Edinburgh
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -114,7 +113,8 @@ CPU::CPU(const BaseO3CPUParams &params)
                   params.backComSize + params.forwardComSize,
                   params.activity),
 
-      globalSeqNum(1), globalFTSeqNum(1),
+      globalSeqNum(1),
+      globalFTSeqNum(1),
       system(params.system),
       lastRunningCycle(curCycle()),
       cpuStats(this)

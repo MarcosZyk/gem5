@@ -203,6 +203,13 @@ class BranchPredictor(SimObject):
         "indirect predictions",
     )
 
+    # Taken only history as used in most modern server CPUs.
+    takenOnlyHistory = Param.Bool(
+        False,
+        "Build the global history only from taken branches (2-bit) "
+        "instead of direction history from all branches.",
+    )
+
 
 class LocalBP(BranchPredictor):
     type = "LocalBP"
@@ -289,6 +296,13 @@ class TAGEBase(SimObject):
 
     speculativeHistUpdate = Param.Bool(
         True, "Use speculative update for histories"
+    )
+
+    # Taken only history as used in most modern server CPUs.
+    takenOnlyHistory = Param.Bool(
+        Parent.takenOnlyHistory,
+        "Build the global history only from taken branches (2-bit) "
+        "instead of direction history from all branches.",
     )
 
 

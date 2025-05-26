@@ -52,6 +52,7 @@
 #include "base/compiler.hh"
 #include "base/statistics.hh"
 #include "base/types.hh"
+#include "mem/cache/base.hh"
 #include "mem/cache/cache_probe_arg.hh"
 #include "mem/packet.hh"
 #include "mem/request.hh"
@@ -382,6 +383,8 @@ class Base : public ClockedObject
 
     virtual void
     setParentInfo(System *sys, ProbeManager *pm, unsigned blk_size);
+
+    virtual void setCache(BaseCache *cache) {}
 
     /**
      * Notify prefetcher of cache access (may be any access or just

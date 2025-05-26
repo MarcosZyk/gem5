@@ -110,6 +110,13 @@ class TAGEBase : public SimObject
             comp ^= (comp >> compLength);
             comp &= (1ULL << compLength) - 1;
         }
+
+        void restore(uint8_t * h)
+        {
+            comp ^= h[origLength] << outpoint;
+            auto tmp = (comp & 1) ^ h[0];
+            comp = (tmp << (compLength-1)) | (comp >> 1);
+        }
     };
 
   public:
@@ -127,6 +134,9 @@ class TAGEBase : public SimObject
     // Primary branch history entry
     struct BranchInfo
     {
+        const Addr branchPC;
+        const bool condBranch;
+
         int pathHist;
         int ptGhist;
         int hitBank;
@@ -137,10 +147,8 @@ class TAGEBase : public SimObject
 
         bool tagePred;
         bool altTaken;
-        bool condBranch;
         bool longestMatchPred;
         bool pseudoNewAlloc;
-        Addr branchPC;
 
         // Pointer to dynamically allocated storage
         // to save table indices and folded histories.
@@ -158,15 +166,51 @@ class TAGEBase : public SimObject
         // for stats purposes
         unsigned provider;
 
+        // The bit vector and the number of bits of global
+        // history used for this branch.
+        uint64_t ghist;
+        uint8_t nGhist;
+
+        // A flag to indicate if this history entry has
+        // modified the histories
+        bool modified;
+        // A flag to indicate if the indies and tags are valid.
+        bool valid;
+
         BranchInfo(const TAGEBase &tage)
-            : pathHist(0), ptGhist(0),
+            : branchPC(0), condBranch(false),
               hitBank(0), hitBankIndex(0),
               altBank(0), altBankIndex(0),
               bimodalIndex(0),
               tagePred(false), altTaken(false),
-              condBranch(false), longestMatchPred(false),
-              pseudoNewAlloc(false), branchPC(0),
-              provider(-1)
+              longestMatchPred(false),
+              pseudoNewAlloc(false),
+              provider(-1),
+              ghist(0), nGhist(0),
+              modified(false),
+              valid(false)
+        {
+            int sz = tage.nHistoryTables + 1;
+            storage = new int [sz * 5];
+            tableIndices = storage;
+            tableTags = storage + sz;
+            ci = tableTags + sz;
+            ct0 = ci + sz;
+            ct1 = ct0 + sz;
+        }
+
+        BranchInfo(const TAGEBase &tage, Addr pc, bool conditional)
+            : branchPC(pc), condBranch(conditional),
+              hitBank(0), hitBankIndex(0),
+              altBank(0), altBankIndex(0),
+              bimodalIndex(0),
+              tagePred(false), altTaken(false),
+              longestMatchPred(false),
+              pseudoNewAlloc(false),
+              provider(-1),
+              ghist(0), nGhist(0),
+              modified(false),
+              valid(false)
         {
             int sz = tage.nHistoryTables + 1;
             storage = new int [sz * 5];
@@ -184,6 +228,9 @@ class TAGEBase : public SimObject
     };
 
     virtual BranchInfo *makeBranchInfo();
+
+    virtual BranchInfo *makeBranchInfo(Addr pc, bool conditional);
+
 
     /**
      * Computes the index used to access the
@@ -268,6 +315,18 @@ class TAGEBase : public SimObject
     void updateGHist(uint8_t * &h, bool dir, uint8_t * tab, int &PT);
 
     /**
+     * Internal history update function. This function shifts
+     * nBits into the global history vector. If the update
+     * is speculative the functions makes a copy of the
+     * GHR to rollback.
+     * @param tid The thread ID to select the histories to update.
+     * @param bv The bit vector with n bits that will be shifted
+     * into the global history vector.
+     * @param n The number of bits to be updated
+    */
+    void updateGHist(ThreadID tid, uint64_t bv, uint8_t n);
+
+    /**
      * Update TAGE. Called at execute to repair histories on a misprediction
      * and at commit to update the tables.
      * @param tid The thread ID to select the global
@@ -283,6 +342,9 @@ class TAGEBase : public SimObject
     * (Speculatively) updates global histories (path and direction).
     * Also recomputes compressed (folded) histories based on the
     * branch direction.
+    *
+    * Only works squashing of histories with when misprediction.
+    *
     * @param tid The thread ID to select the histories
     * to update.
     * @param branch_pc The unshifted branch PC.
@@ -296,6 +358,21 @@ class TAGEBase : public SimObject
         bool speculative,
         const StaticInstPtr & inst = nullStaticInstPtr,
         Addr target = MaxAddr);
+    /**
+     * Records the current state of the histories to be able to restore it
+     * in case of a mispredicted speculative update.
+     * @param tid The thread ID to select the histories to record.
+     * @param bi Pointer to the branch associated with the state
+     */
+    void recordHistState(ThreadID tid, BranchInfo* bi);
+
+    /**
+     * Restore the state of the histories in case of detecting
+     * a mispredicted speculative update.
+     * @param tid The thread ID to select the histories to restore.
+     * @param bi Pointer to the branch associated with the state
+    */
+    void restoreHistState(ThreadID tid, BranchInfo* bi);
 
     /**
      * Restores speculatively updated path and direction histories.
@@ -304,11 +381,11 @@ class TAGEBase : public SimObject
      * This version of squash() is called once on a branch misprediction.
      * @param tid The Thread ID to select the histories to rollback.
      * @param taken The correct branch outcome.
-     * @param bp_history Wrapping pointer to BranchInfo (to allow
+     * @param bi Wrapping pointer to BranchInfo (to allow
      * storing derived class prediction information in the
      * base class).
      * @param target The correct branch target
-     * @post bp_history points to valid memory.
+     * @post bi points to valid memory.
      */
     virtual void squash(
         ThreadID tid, bool taken, BranchInfo *bi, Addr target);
@@ -420,6 +497,30 @@ class TAGEBase : public SimObject
     bool isSpeculativeUpdateEnabled() const;
     size_t getSizeInBits() const;
 
+private:
+
+
+    /**
+    * Internal implementation of updateHistories
+    */
+    virtual void checkAndUpdateHistories(
+        ThreadID tid, Addr branch_pc, bool taken, BranchInfo* b,
+        bool speculative,
+        Addr target = MaxAddr);
+
+    /**
+     * Does the actual update of path and global history. Different TAGE
+     * implementations may override this function to do extra work.
+     * @param tid The thread ID to select the histories to update.
+     * @param taken Actual branch outcome.
+     * @param branch_pc The unshifted branch PC.
+     * @param target The branch target
+     * @param bi Pointer to information on the prediction
+     */
+    virtual void executeUpdatePathAndGlobalHistory(
+        ThreadID tid, bool taken, Addr branch_pc, Addr target, BranchInfo* bi);
+
+
   protected:
     const unsigned logRatioBiModalHystEntries;
     const unsigned nHistoryTables;
@@ -479,6 +580,8 @@ class TAGEBase : public SimObject
     unsigned numUseAltOnNa;
     unsigned useAltOnNaBits;
     unsigned maxNumAlloc;
+    /** Use taken only history. */
+    const bool takenOnlyHistory;
 
     // Tells which tables are active
     // (for the base TAGE implementation all are active)

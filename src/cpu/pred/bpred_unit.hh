@@ -192,8 +192,8 @@ class BPredUnit : public SimObject
      * @todo Make this update flexible enough to handle a global predictor.
      */
     virtual void update(ThreadID tid, Addr pc, bool taken,
-                        void * &bp_history, bool squashed,
-                        const StaticInstPtr &inst, Addr target) = 0;
+                   void * &bp_history, bool squashed,
+                   const StaticInstPtr &inst, Addr target) = 0;
 
     /**
      * Special function for the decoupled front-end. In it there can be
@@ -216,7 +216,7 @@ class BPredUnit : public SimObject
     /**
      * Looks up a given PC in the BTB to see if a matching entry exists.
      * @param tid The thread id.
-     * @param instPC The PC to look up.
+     * @param inst_PC The PC to look up.
      * @return Whether the BTB contains the given PC.
      */
     bool BTBValid(ThreadID tid, Addr instPC)
@@ -229,7 +229,7 @@ class BPredUnit : public SimObject
      * be changed or deleted in the future, so it needs to be used immediately,
      * and/or copied for use later.
      * @param tid The thread id.
-     * @param instPC The PC to look up.
+     * @param inst_PC The PC to look up.
      * @return The address of the target of the branch.
      */
     const PCStateBase *
@@ -244,8 +244,7 @@ class BPredUnit : public SimObject
      * the information does not usually exist at that this point.
      * Only for instructions (branches) that hit in the BTB this information
      * is available as the BTB stores them together with the target.
-     * @param tid The thread id.
-     * @param instPC The PC to look up.
+     * @param inst_PC The PC to look up.
      * @return The static instruction info of the given PC if existant.
      */
     const StaticInstPtr
@@ -256,7 +255,6 @@ class BPredUnit : public SimObject
 
     /**
      * Updates the BTB with the target of a branch.
-     * @param tid The thread id.
      * @param instPC The branch's PC that will be updated.
      * @param target The branch's target that will be added to the BTB.
      */
@@ -369,7 +367,7 @@ class BPredUnit : public SimObject
 
     /**
      * Internal prediction function.
-   */
+    */
     bool predict(const StaticInstPtr &inst, const InstSeqNum &seqNum,
                PCStateBase &pc, ThreadID tid, PredictorHistory* &bpu_history);
 

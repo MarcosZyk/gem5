@@ -783,16 +783,17 @@ TAGEBase::updateStats(bool taken, BranchInfo* bi)
 }
 
 unsigned
-TAGEBase::getGHR(ThreadID tid) const
+TAGEBase::getGHR(ThreadID tid, BranchInfo *bi) const
 {
     unsigned val = 0;
-    int gh_ptr = threadHistory[tid].ptGhist;
-    for (unsigned i = 0; i < 16; i++) {
+    for (unsigned i = 0; i < 32; i++) {
         // Make sure we don't go out of bounds
-        assert(&(threadHistory[tid].globalHistory[gh_ptr + i]) <
+        int gh_offset = bi->ptGhist + i;
+        assert(&(threadHistory[tid].globalHistory[gh_offset]) <
                threadHistory[tid].globalHistory + histBufferSize);
-        val |= ((threadHistory[tid].globalHistory[gh_ptr + i] & 0x1) << i);
+        val |= ((threadHistory[tid].globalHistory[gh_offset] & 0x1) << i);
     }
+
     return val;
 }
 

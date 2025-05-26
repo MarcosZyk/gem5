@@ -473,7 +473,7 @@ class TAGEBase : public SimObject
         return false;
     }
 
-    unsigned getGHR(ThreadID tid) const;
+    unsigned getGHR(ThreadID tid, BranchInfo *bi) const;
     int8_t getCtr(int hitBank, int hitBankIndex) const;
     unsigned getTageCtrBits() const;
     int getPathHist(ThreadID tid) const;

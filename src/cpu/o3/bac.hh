@@ -359,14 +359,8 @@ class BAC
     const Cycles bacToFetchDelay;
 
     /** The maximum width of a fetch target. This also determines the
-     * maximum addresses searched in one cycle. (FT width / minInstSize) */
+     * maximum addresses searched in one cycle. */
     const unsigned fetchTargetWidth;
-
-    /** The minimum size an instruction can have in the current
-     * architecture. It determines the search granularity of the decoupled
-     * front-end. I.e. for x86 this must be 1. For fixed size ISA's it
-     * should be equal to the instruction size to speedup simulation time.*/
-    const unsigned minInstSize;
 
     /** List of Active FTQ Threads */
     std::list<ThreadID> *activeThreads;

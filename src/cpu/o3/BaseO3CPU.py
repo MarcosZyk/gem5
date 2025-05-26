@@ -206,9 +206,4 @@ class BaseO3CPU(BaseCPU):
         "Max width (bytes) of Fetch target. "
         "Determines the maximum search width per cycle",
     )
-    minInstSize = Param.Unsigned(
-        1,
-        "Minimum instruction size (bytes). Determines the granularity "
-        "of the instruction minimum search width per cycle",
-    )
 

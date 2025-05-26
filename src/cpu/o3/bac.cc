@@ -34,7 +34,6 @@ BAC::BAC(CPU *_cpu, const BaseO3CPUParams &params)
       commitToFetchDelay(params.commitToFetchDelay),
       bacToFetchDelay(params.bacToFetchDelay),
       fetchTargetWidth(params.fetchTargetWidth),
-      minInstSize(params.minInstSize),
       numThreads(params.numThreads),
       stats(_cpu,this)
 {
@@ -592,7 +591,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
         }
 
         // Continue searching.
-        search_addr += minInstSize;
+        search_addr += 1;
     }
 
     // Update the current PC to point to the last instruction
@@ -634,7 +633,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
 
         // Not a branch therefore we will continue the next FT at the
         // next address
-        next_pc->set(cur_pc.instAddr() + minInstSize);
+        next_pc->set(cur_pc.instAddr() + 1);
     }
 
 

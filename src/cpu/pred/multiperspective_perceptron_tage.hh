@@ -257,9 +257,6 @@ class MultiperspectivePerceptronTAGE : public MultiperspectivePerceptron
                          Addr target, const StaticInstPtr &inst,
                          void * &bp_history) override;
     void squash(ThreadID tid, void * &bp_history) override;
-    void branchPlaceholder(ThreadID tid, Addr pc,
-                                bool uncond, void * &bp_history) override
-    { panic("Not implemented for this BP!\n"); }
 
 };
 

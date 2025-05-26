@@ -72,15 +72,6 @@ LTAGE::init()
     TAGE::init();
 }
 
-void
-LTAGE::branchPlaceholder(ThreadID tid, Addr pc,
-                         bool uncond, void * &bpHistory)
-{
-    LTageBranchInfo *bi = new LTageBranchInfo(*tage, *loopPredictor,
-                                              pc, !uncond);
-    bpHistory = (void*)(bi);
-}
-
 //prediction
 bool
 LTAGE::predict(ThreadID tid, Addr branch_pc, bool cond_branch, void* &b)

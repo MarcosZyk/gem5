@@ -181,10 +181,6 @@ class TAGE_SC_L: public LTAGE
                 void * &bp_history, bool squashed,
                 const StaticInstPtr & inst, Addr target) override;
 
-    void branchPlaceholder(ThreadID tid, Addr pc,
-                                bool uncond, void * &bp_history) override
-    { panic("Not implemented for this BP!\n"); }
-
   protected:
 
     struct TageSCLBranchInfo : public LTageBranchInfo

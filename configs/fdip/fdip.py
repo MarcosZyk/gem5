@@ -103,17 +103,17 @@ def get_args():
     return parser.parse_args()
 
 
-def set_workload(board: SimpleBoard):
-    if os.path.exists(args.workload):
+def set_workload(board: SimpleBoard, workload, arguments):
+    if os.path.exists(workload):
         # local workload
         board.set_se_binary_workload(
-            binary=BinaryResource(args.workload),
-            arguments=args.arguments.split(" ")
+            binary=BinaryResource(workload),
+            arguments=arguments.split(" ")
         )
     else:
         # workload from remote gem5 resource
         board.set_se_binary_workload(
-            obtain_resource(workloads[args.workload][args.isa])
+            obtain_resource(workloads[workload])
         )
 
 
@@ -166,7 +166,7 @@ def get_simulator(args):
         cache_hierarchy=cache_hierarchy,
     )
 
-    set_workload(board)
+    set_workload(board, args.workload, args.arguments)
 
     return Simulator(board=board)
 

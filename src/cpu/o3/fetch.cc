@@ -987,7 +987,7 @@ Fetch::checkSignalsAndUpdate(ThreadID tid)
     }
 
     // If we've reached this point, we have not gotten any signals that
-    // cause fetch to change its status. Fetch remains the same as before.
+    // cause fetch to change its status.  Fetch remains the same as before.
     return false;
 }
 

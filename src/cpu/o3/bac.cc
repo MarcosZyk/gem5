@@ -26,15 +26,15 @@ namespace o3
 
 BAC::BAC(CPU *_cpu, const BaseO3CPUParams &params)
     : cpu(_cpu),
-      bpu(params.branchPred),
-      ftq(nullptr),
       wroteToTimeBuffer(false),
       fetchToBacDelay(params.fetchToBacDelay),
       decodeToFetchDelay(params.decodeToFetchDelay),
       commitToFetchDelay(params.commitToFetchDelay),
       bacToFetchDelay(params.bacToFetchDelay),
-      fetchTargetWidth(params.fetchTargetWidth),
       numThreads(params.numThreads),
+      bpu(params.branchPred),
+      ftq(nullptr),
+      fetchTargetWidth(params.fetchTargetWidth),
       stats(_cpu,this)
 {
     fatal_if(fetchTargetWidth < params.fetchBufferSize,

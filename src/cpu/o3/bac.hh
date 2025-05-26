@@ -55,35 +55,15 @@ class BAC
 
     BACStatus _status;
 
-    /** Per-thread status. */
-    ThreadStatus bacStatus[MaxThreads];
-
-    /** Pointer to the main CPU. */
     CPU* cpu;
 
-    /** BPredUnit. */
-    branch_prediction::BPredUnit* bpu;
-
-    /** Fetch target Queue. */
-    FetchTargetQueue* ftq;
 
     /** Time buffer interface. */
     TimeBuffer<TimeStruct> *timeBuffer;
-
-    /** Wire to get fetches's information from backwards time buffer. */
     TimeBuffer<TimeStruct>::wire fromFetch;
-
-    /** Wire to get decode's information from backwards time buffer. */
     TimeBuffer<TimeStruct>::wire fromDecode;
-
-    /** Wire to get commit's information from backwards time buffer. */
     TimeBuffer<TimeStruct>::wire fromCommit;
-
-    /** Wire used to write any information heading to fetch. */
     TimeBuffer<FetchStruct>::wire toFetch;
-
-    /** The decoupled PC which runs ahead of fetch */
-    std::unique_ptr<PCStateBase> bacPC[MaxThreads];
 
 
     /** Variable that tracks if BAC has written to the time buffer this
@@ -101,28 +81,33 @@ class BAC
 
     /** Tracks which stages are telling the ftq to stall. */
     Stalls stalls[MaxThreads];
-
     /** Fetch to BAC delay. */
     const Cycles fetchToBacDelay;
-
     /** Decode to fetch delay. (Same delay for BAC as for fetch) */
     const Cycles decodeToFetchDelay;
-
     /** Commit to fetch delay. (Same delay for BAC as for fetch) */
     const Cycles commitToFetchDelay;
-
     /** BAC to fetch delay. */
     const Cycles bacToFetchDelay;
 
+
+    /** Per-thread status. */
+    ThreadStatus bacStatus[MaxThreads];
+    /** Per-thread PC */
+    std::unique_ptr<PCStateBase> bacPC[MaxThreads];
+    /** List of Active FTQ Threads */
+    std::list<ThreadID> *activeThreads;
+    /** Number of threads. */
+    const ThreadID numThreads;
+
+
+    branch_prediction::BPredUnit* bpu;
+    FetchTargetQueue* ftq;
     /** The maximum width of a fetch target. This also determines the
      * maximum addresses searched in one cycle. */
     const unsigned fetchTargetWidth;
 
-    /** List of Active FTQ Threads */
-    std::list<ThreadID> *activeThreads;
 
-    /** Number of threads. */
-    const ThreadID numThreads;
 
   protected:
     struct BACStats : public statistics::Group

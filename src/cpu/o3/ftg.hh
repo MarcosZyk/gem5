@@ -129,8 +129,6 @@ class FTG
       statistics::Scalar branches;
       /** Total number of branches predicted taken. */
       statistics::Scalar predTakenBranches;
-      /** Total number of fetched branches. */
-      statistics::Scalar branchesNotLastuOp;
 
       /** Stat for total number of misspredicted instructions. */
       statistics::Scalar branchMisspredict;

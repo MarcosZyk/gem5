@@ -57,7 +57,6 @@ FTG::name() const {
 void
 FTG::setTimeBuffer(TimeBuffer<TimeStruct> *time_buffer)
 {
-    // TODO:
     timeBuffer = time_buffer;
 
     // Create wires to get information from proper places in time buffer.
@@ -75,7 +74,6 @@ FTG::setActiveThreads(std::list<ThreadID> *at_ptr)
 void
 FTG::setFetchTargetQueue(FetchTargetQueue * _ptr)
 {
-    // Set pointer to the fetch target queue
     ftq = _ptr;
 }
 
@@ -84,21 +82,6 @@ FTG::startupStage()
 {
     resetStage();
     switchToActive();
-}
-
-
-void
-FTG::clearStates(ThreadID tid)
-{
-    ftgStatus[tid] = Running;
-    set(ftgPC[tid], cpu->pcState(tid));
-
-    stalls[tid].fetch = false;
-    stalls[tid].drain = false;
-    stalls[tid].bpu = false;
-
-    assert(ftq!=nullptr);
-    ftq->resetState();
 }
 
 
@@ -124,56 +107,6 @@ FTG::resetStage()
 
 
 void
-FTG::drainResume()
-{
-    DPRINTF(Drain, "Resume from draining.\n");
-    for (ThreadID i = 0; i < numThreads; ++i) {
-        stalls[i].drain = false;
-    }
-}
-
-void
-FTG::drainSanityCheck() const
-{
-    assert(isDrained());
-
-    for (ThreadID i = 0; i < numThreads; ++i) {
-        assert(ftgStatus[i] == Idle || stalls[i].drain);
-        assert(ftq->isEmpty(i));
-    }
-
-    bpu->drainSanityCheck();
-}
-
-bool
-FTG::isDrained() const
-{
-    // Make sure the FTQ is empty and the state of all threads is idle.
-    for (ThreadID i = 0; i < numThreads; ++i) {
-        // Verify FTQs are drained
-        if (!ftq->isEmpty(i))
-            return false;
-
-        // Return false if not idle or drain stalled
-        if (ftgStatus[i] != Idle) {
-            return false;
-        }
-    }
-    return true;
-}
-
-
-void
-FTG::drainStall(ThreadID tid)
-{
-    assert(cpu->isDraining());
-    assert(!stalls[tid].drain);
-    DPRINTF(Drain, "%i: Thread drained.\n", tid);
-    stalls[tid].drain = true;
-}
-
-
-void
 FTG::switchToActive()
 {
     if (_status == Inactive) {
@@ -194,22 +127,52 @@ FTG::switchToInactive()
 }
 
 
-bool
-FTG::checkStall(ThreadID tid) const
+void
+FTG::clearStates(ThreadID tid)
 {
-    bool ret_val = false;
+    ftgStatus[tid] = Running;
+    set(ftgPC[tid], cpu->pcState(tid));
 
-    if (stalls[tid].fetch) {
-        DPRINTF(FTG,"[tid:%i] Fetch stall detected.\n",tid);
-        ret_val = true;
+    stalls[tid].fetch = false;
+    stalls[tid].drain = false;
+    stalls[tid].bpu = false;
+
+    assert(ftq!=nullptr);
+    ftq->resetState();
+}
+
+
+void
+FTG::tick()
+{
+    bool activity = false;
+    bool status_change = false;
+
+    std::list<ThreadID>::iterator threads = activeThreads->begin();
+    std::list<ThreadID>::iterator end = activeThreads->end();
+
+    while (threads != end) {
+        ThreadID tid = *threads++;
+
+        // Check stall and squash signals first.
+        status_change |= checkSignalsAndUpdate(tid);
+
+        if (ftgStatus[tid] == Running) {
+            generateFetchTargets(tid, status_change);
+            activity = true;
+        }
+        profileCycle(tid);
     }
 
-    if (stalls[tid].bpu) {
-        DPRINTF(FTG,"[tid:%i] BPU stall detected.\n",tid);
-        ret_val = true;
+    if (status_change) {
+        updateFTGStatus();
     }
 
-    return ret_val;
+    if (activity) {
+        DPRINTF(Activity, "Activity this cycle.\n");
+
+        cpu->activityThisCycle();
+    }
 }
 
 void
@@ -336,8 +299,6 @@ FTG::checkAndUpdateBPUSignals(ThreadID tid)
 }
 
 
-
-
 bool
 FTG::checkSignalsAndUpdate(ThreadID tid)
 {
@@ -418,8 +379,6 @@ FTG::checkSignalsAndUpdate(ThreadID tid)
 }
 
 
-
-
 void
 FTG::squashBpuHistories(ThreadID tid)
 {
@@ -447,51 +406,10 @@ FTG::squashBpuHistories(ThreadID tid)
 void
 FTG::squash(const PCStateBase &new_pc, ThreadID tid)
 {
-
     DPRINTF(FTG, "[tid:%i] Squashing FTQ.\n", tid);
-
-    // Set status to squashing.
     ftgStatus[tid] = Squashing;
-
-    // Set the new PC
     set(ftgPC[tid], new_pc);
-
-    // Then squash all fetch targets
     ftq->squash(tid);
-}
-
-
-void
-FTG::tick()
-{
-    bool activity = false;
-    bool status_change = false;
-
-    std::list<ThreadID>::iterator threads = activeThreads->begin();
-    std::list<ThreadID>::iterator end = activeThreads->end();
-
-    while (threads != end) {
-        ThreadID tid = *threads++;
-
-        // Check stall and squash signals first.
-        status_change |= checkSignalsAndUpdate(tid);
-
-        if (ftgStatus[tid] == Running) {
-            generateFetchTargets(tid, status_change);
-            activity = true;
-        }
-        profileCycle(tid);
-    }
-
-    if (status_change) {
-        updateFTGStatus();
-    }
-
-    if (activity) {
-        DPRINTF(Activity, "Activity this cycle.\n");
-
-        cpu->activityThisCycle();
-    }
 }
 
 
@@ -510,15 +428,9 @@ bool
 FTG::predict(ThreadID tid, const StaticInstPtr &inst,
              const FetchTargetPtr &ft, PCStateBase &pc)
 {
-
-    /** Perform the prediction. */
     BPredUnit::PredictorHistory* bpu_history = nullptr;
     bool taken  = bpu->predict(inst, ft->getFetchSeqNum(), pc, tid, bpu_history);
 
-    /** Push the prediction history to the fetch target.
-     * The postFetch() function will move the history from the FTQ to the
-     * main history of the BPU.
-    */
     ft->bpu_history = static_cast<void*>(bpu_history);
 
     DPRINTF(Branch,"[tid:%i, ftn:%llu] History added.\n", tid, ft->getFetchSeqNum());
@@ -529,29 +441,10 @@ FTG::predict(ThreadID tid, const StaticInstPtr &inst,
 void
 FTG::generateFetchTargets(ThreadID tid, bool &status_change)
 {
-    /**
-     * This function implements the head of the decoupled frontend.
-     * Instead of waiting for the pre-decoding the current instruction, as
-     * done in the standared front-end, the BTB is leveraged for finding
-     * branches in the instruction stream.
-     *
-     * Starting from the current address we search all consecutive addresses
-     * if a entry exits in the BTB. As soon as the BTB hits, we know we have
-     * reached a branch instruction and make a prediction for the branch.
-     * The start and end address of this so called fetch target is stored
-     * together with the prediction in the FTQ.
-     *
-     * Depending on the prediction of the BPU the branch target or the
-     * fallthrough address determine the start address for the next
-     * fetch target and search cycle.
-     */
 
     bool branch_found = false;
     bool predict_taken = false;
 
-    // Get a reference to the current PC state for this thread.
-    // The search itself is done on the instruction address to speed up
-    // simulation time.
     PCStateBase &cur_pc = *ftgPC[tid];
     Addr search_addr = cur_pc.instAddr();
     Addr start_addr = search_addr;
@@ -569,7 +462,6 @@ FTG::generateFetchTargets(ThreadID tid, bool &status_change)
         // indicating the end of the branch.
         branch_found = bpu->BTBValid(tid, search_addr);
 
-        // If its a branch stop searching
         if (branch_found) {
             break;
         }
@@ -580,7 +472,6 @@ FTG::generateFetchTargets(ThreadID tid, bool &status_change)
             break;
         }
 
-        // Continue searching.
         search_addr += 1;
     }
 
@@ -620,51 +511,20 @@ FTG::generateFetchTargets(ThreadID tid, bool &status_change)
         }
 
     } else {
-
-        // Not a branch therefore we will continue the next FT at the
-        // next address
+        // Not a branch therefore continue the next FT at the next address
         next_pc->set(cur_pc.instAddr() + 1);
     }
 
-
-    // Complete the fetch target if
-    // - a branch is found
-    // - or the maximum fetch bandwidth is reached.
     curFT->sealTarget(cur_pc, curFT->getFetchSeqNum(), branch_found,
                         predict_taken, *next_pc);
 
     ftq->insert(tid, curFT);
     wroteToTimeBuffer = true;
 
-    // Check whether the FTQ became full. In that case block until
-    // fetch has consumed one.
     if (ftq->isFull(tid)) {
         DPRINTF(FTG, "FTQ full\n");
         ftgStatus[tid] = FTQFull;
         status_change = true;
-    }
-
-    // x86 has some complex instruction like string copy where the branch
-    // is not the last instruction or have several branches within the same
-    // instruction. Those branches jump always! to itself. This messes up
-    // the searching approach and will result in an infinite loop until the
-    // branch is squashed.
-    // We handle this by assuming only one branch per instruction and go
-    // straight to the next address/instruction/fetch target. In case the
-    // decoder finds more branches in this instruction we squash the FTQ.
-    // (see postFetch())
-    // This could be circumvented by using not only the PC but also the
-    // microPC to make predictions. However, since such instructions are
-    // rare this is not implemented.
-    if (staticInst
-        && staticInst->isMicroop() && !staticInst->isLastMicroop()) {
-        statsFTG.branchesNotLastuOp++;
-        // The target is always to itself no matter if its taken or not.
-        // assert(next_pc->instAddr() == search_addr);
-        DPRINTF(FTG, "Branch detected which is not the last uOp %s. "
-                    "Continue with next address.\n", cur_pc);
-
-        next_pc->set(cur_pc.instAddr() + staticInst->size());
     }
 
     DPRINTF(FTG, "[tid:%i] [fn:%llu] %i addresses searched. "
@@ -723,61 +583,6 @@ FTG::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
 
     }
 
-    // Special cases ------------------------------------------------
-    // We need to handle two corner cases for complex instructions
-    // 1. For complex instructions it can happen that several branches with
-    // different types exists in the same instruction. If the branch type
-    // does not match with the type of the prediction history its invalid.
-    // We squash everything  the history and we can make a fresh
-    // prediction
-    if (hist && (hist->type != brType)) {
-        DPRINTF(Branch, "Branch types dont match. Delete history\n", tid);
-        statsFTG.typeMissmatch++;
-
-        // Push the history back to the FTQ to allow it to be sqaushed
-        // in correct order. Then squash all histories right away.
-        ft->bpu_history = static_cast<void*>(hist);
-        hist = nullptr;
-        squashBpuHistories(tid);
-
-        // Lock the FTQ.
-        // The complex instruction needs to be completed before unlocking.
-        // Unlocking is performed by resetting the FTG stage.
-        ftq->lock(tid);
-    }
-
-    // 2. For complex instruction with more than one branches the history
-    // the history is already used. We only predict the first branch in a
-    // complex instruction (see createFetchTarget() function).
-    // In that case we squash the FTQ and lock it until the full instruction
-    // Afterwards the fetch stage will reset the FTG stage with a
-    // ftgResteer() call. Hence, operation for complex instructions is:
-    // Detecting multi branch inst. -> lock FTQ util inst. done. -> reset FTG.
-    //
-    // Note we might end up here multiple times until the full instruction
-    // is completed.
-    if (inst->isMicroop() && !inst->isLastMicroop() && (hist == nullptr)) {
-
-        DPRINTF(Branch, "No history for complex instruction found. \n");
-        statsFTG.multiBranchInst++;
-
-        // First squash all histories that are already in the FTQ
-        // to have a clean state.
-        squashBpuHistories(tid);
-
-        // Then lock the FTQ. The complex instruction needs to
-        // be completed before unlocking. Unlocking is performed by
-        // resetting the FTG stage with a ftgResteer() call from the
-        // fetch stage.
-        ftq->lock(tid);
-
-        // Finally we can make a fresh prediction.
-        bpu->predict(inst, ft->getFetchSeqNum(), pc, tid, hist);
-        target_set = true;
-    }
-
-
-    // Normal case --------------------------------------------------
     // Check if we have a valid history. If not we need to create one.
     if (hist == nullptr) {
         DPRINTF(FTG, "[tid:%i, sn:%llu] No branch history for PC:%#x\n",
@@ -876,14 +681,7 @@ FTG::updatePC(const DynInstPtr &inst,
     }
 
 
-    // For the decoupled front-end we need to check if this instruction
-    // is the exit instruction of the fetch target. It does not need
-    // to be a branch.
-    // If the instruction is micro coded check if its the last uOp.
-    // Also remove the fetch target if the FTQ became invalid.
-    if ((ft->isEndInst(inst->pcState().instAddr())
-            && (!inst->isMicroop() || inst->isLastMicroop()))
-        || !ftq->isValid(tid)) {
+    if (ft->isEndInst(inst->pcState().instAddr()) || !ftq->isValid(tid)) {
 
         DPRINTF(FTG, "[tid:%i][ft:%llu] Reached end of Fetch Target\n",
                         tid, ft->getFetchSeqNum());
@@ -894,6 +692,74 @@ FTG::updatePC(const DynInstPtr &inst,
     return predict_taken;
 }
 
+
+void
+FTG::drainResume()
+{
+    DPRINTF(Drain, "Resume from draining.\n");
+    for (ThreadID i = 0; i < numThreads; ++i) {
+        stalls[i].drain = false;
+    }
+}
+
+void
+FTG::drainSanityCheck() const
+{
+    assert(isDrained());
+
+    for (ThreadID i = 0; i < numThreads; ++i) {
+        assert(ftgStatus[i] == Idle || stalls[i].drain);
+        assert(ftq->isEmpty(i));
+    }
+
+    bpu->drainSanityCheck();
+}
+
+bool
+FTG::isDrained() const
+{
+    // Make sure the FTQ is empty and the state of all threads is idle.
+    for (ThreadID i = 0; i < numThreads; ++i) {
+        // Verify FTQs are drained
+        if (!ftq->isEmpty(i))
+            return false;
+
+        // Return false if not idle or drain stalled
+        if (ftgStatus[i] != Idle) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+void
+FTG::drainStall(ThreadID tid)
+{
+    assert(cpu->isDraining());
+    assert(!stalls[tid].drain);
+    DPRINTF(Drain, "%i: Thread drained.\n", tid);
+    stalls[tid].drain = true;
+}
+
+
+bool
+FTG::checkStall(ThreadID tid) const
+{
+    bool ret_val = false;
+
+    if (stalls[tid].fetch) {
+        DPRINTF(FTG,"[tid:%i] Fetch stall detected.\n",tid);
+        ret_val = true;
+    }
+
+    if (stalls[tid].bpu) {
+        DPRINTF(FTG,"[tid:%i] BPU stall detected.\n",tid);
+        ret_val = true;
+    }
+
+    return ret_val;
+}
 
 void
 FTG::profileCycle(ThreadID tid)
@@ -936,9 +802,6 @@ FTG::FTGStats::FTGStats(o3::CPU *cpu, FTG *ftg)
             "Number of branches that FTG encountered"),
     ADD_STAT(predTakenBranches, statistics::units::Count::get(),
             "Number of branches that FTG predicted taken."),
-    ADD_STAT(branchesNotLastuOp, statistics::units::Count::get(),
-             "Number of branches that fetch encountered which are not the "
-             "last uOp within a macrooperation. Jump to itself."),
     ADD_STAT(branchMisspredict, statistics::units::Count::get(),
             "Number of branches that FTG has predicted taken"),
     ADD_STAT(noBranchMisspredict, statistics::units::Count::get(),

@@ -583,6 +583,27 @@ FTG::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
 
     }
 
+    // For complex instructions it can happen that several branches with
+    // different types exists in the same instruction. If the branch type
+    // does not match with the type of the prediction history its invalid.
+    // We squash everything  the history and we can make a fresh
+    // prediction
+    if (hist && (hist->type != brType)) {
+        DPRINTF(Branch, "Branch types dont match. Delete history\n", tid);
+        statsFTG.typeMissmatch++;
+
+        // Push the history back to the FTQ to allow it to be sqaushed
+        // in correct order. Then squash all histories right away.
+        ft->bpu_history = static_cast<void*>(hist);
+        hist = nullptr;
+        squashBpuHistories(tid);
+
+        // Lock the FTQ.
+        // The complex instruction needs to be completed before unlocking.
+        // Unlocking is performed by resetting the FTG stage.
+        ftq->lock(tid);
+    }
+
     // Check if we have a valid history. If not we need to create one.
     if (hist == nullptr) {
         DPRINTF(FTG, "[tid:%i, sn:%llu] No branch history for PC:%#x\n",

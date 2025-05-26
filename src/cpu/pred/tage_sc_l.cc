@@ -465,8 +465,8 @@ TAGE_SC_L::update(ThreadID tid, Addr pc, bool taken, void *&bp_history,
         statisticalCorrector->scHistoryUpdate(pc, inst, taken,
                                               bi->scBranchInfo, target);
 
-        tage->updateHistories(tid, pc, false, taken, target,
-                              inst, bi->tageBranchInfo);
+        tage->updateHistories(tid, pc, taken, bi->tageBranchInfo, false,
+                              inst, target);
     }
 
     delete bi;

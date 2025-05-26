@@ -723,7 +723,7 @@ void
 TAGEBase::squash(ThreadID tid, bool taken, Addr target,
                  const StaticInstPtr &inst, TAGEBase::BranchInfo *bi)
 {
-    updateHistories(tid, bi->branchPC, true, taken, target, inst, bi);
+    updateHistories(tid, bi->branchPC, taken, bi, true, inst, target);
 }
 
 void

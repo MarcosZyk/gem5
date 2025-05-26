@@ -612,8 +612,8 @@ MultiperspectivePerceptronTAGE::update(ThreadID tid, Addr pc, bool taken,
     if (bi->isUnconditional()) {
         statisticalCorrector->scHistoryUpdate(pc, inst, taken,
                 bi->scBranchInfo, target);
-        tage->updateHistories(tid, pc, false, taken, target,
-                              inst, bi->tageBranchInfo);
+        tage->updateHistories(tid, pc, taken, bi->tageBranchInfo, false,
+                inst, target);
     } else {
         tage->updateStats(taken, bi->tageBranchInfo);
         loopPredictor->updateStats(taken, bi->lpBranchInfo);
@@ -661,8 +661,8 @@ MultiperspectivePerceptronTAGE::update(ThreadID tid, Addr pc, bool taken,
             statisticalCorrector->scHistoryUpdate(pc, inst, taken,
                     bi->scBranchInfo, target);
 
-            tage->updateHistories(tid, pc, false, taken, target,
-                                  inst, bi->tageBranchInfo);
+            tage->updateHistories(tid, pc, taken, bi->tageBranchInfo,
+                                  false, inst, target);
         }
     }
     delete bi;

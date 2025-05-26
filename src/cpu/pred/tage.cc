@@ -93,7 +93,7 @@ TAGE::update(ThreadID tid, Addr pc, bool taken, void * &bp_history,
     }
 
     // optional non speculative update of the histories
-    tage->updateHistories(tid, pc, false, taken, target, inst, tage_bi);
+    tage->updateHistories(tid, pc, taken, tage_bi, false, inst, target);
     delete bi;
     bp_history = nullptr;
 }
@@ -141,8 +141,7 @@ TAGE::updateHistories(ThreadID tid, Addr pc, bool uncond, bool taken,
 
     // Update the global history for all branches
     TageBranchInfo *bi = static_cast<TageBranchInfo*>(bp_history);
-    tage->updateHistories(tid, pc, true, taken, target, inst,
-                          bi->tageBranchInfo);
+    tage->updateHistories(tid, pc, taken, bi->tageBranchInfo, true, inst, target);
 }
 
 void

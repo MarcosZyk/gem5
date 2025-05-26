@@ -304,6 +304,16 @@ class TAGEBase : public SimObject
      */
     void baseUpdate(Addr pc, bool taken, BranchInfo* bi);
 
+    /**
+    * (Speculatively) updates the global branch history.
+    * @param h Reference to pointer to global branch history.
+    * @param dir (Predicted) outcome to update the histories
+    * with.
+    * @param tab
+    * @param PT Reference to path history.
+    */
+    void updateGHist(uint8_t * &h, bool dir, uint8_t * tab, int &PT);
+
    /**
      * Internal history update function. This function shifts
      * nBits into the global history vector. If the update

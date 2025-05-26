@@ -306,6 +306,24 @@ TAGEBase::baseUpdate(Addr pc, bool taken, BranchInfo* bi)
 // shifting the global history:  we manage the history in a big table in order
 // to reduce simulation time
 void
+TAGEBase::updateGHist(uint8_t * &h, bool dir, uint8_t * tab, int &pt)
+{
+    if (pt == 0) {
+        DPRINTF(Tage, "Rolling over the histories\n");
+        // Copy beginning of globalHistoryBuffer to end, such that
+        // the last maxHist outcomes are still reachable
+        // through pt[0 .. maxHist - 1].
+        for (int i = 0; i < maxHist; i++)
+            tab[histBufferSize - maxHist + i] = tab[i];
+        pt =  histBufferSize - maxHist;
+        h = &tab[pt];
+    }
+    pt--;
+    h--;
+    h[0] = (dir) ? 1 : 0;
+}
+
+void
 TAGEBase::updateGHist(ThreadID tid, uint64_t bv, uint8_t n)
 {
     if (n == 0) return;

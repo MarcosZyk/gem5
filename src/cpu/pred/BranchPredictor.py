@@ -207,8 +207,7 @@ class BranchPredictor(SimObject):
     takenOnlyHistory = Param.Bool(
         False,
         "Build the global history only from taken branches (2-bit) "
-        "instead of direction history from all branches. Widely implemented "
-        "in modern server CPUs: https://ieeexplore.ieee.org/document/9246215",
+        "instead of direction history from all branches.",
     )
 
 
@@ -303,8 +302,7 @@ class TAGEBase(SimObject):
     takenOnlyHistory = Param.Bool(
         Parent.takenOnlyHistory,
         "Build the global history only from taken branches (2-bit) "
-        "instead of direction history from all branches. Widely implemented "
-        "in modern server CPUs: https://ieeexplore.ieee.org/document/9246215",
+        "instead of direction history from all branches.",
     )
 
 

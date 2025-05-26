@@ -98,8 +98,7 @@ BiModeBP::uncondBranch(ThreadID tid, Addr pc, void * &bp_history)
 
 void
 BiModeBP::updateHistories(ThreadID tid, Addr pc, bool uncond, bool taken,
-                          Addr target, const StaticInstPtr &inst,
-                          void * &bp_history)
+                          Addr target, const StaticInstPtr &inst, void * &bp_history)
 {
     assert(uncond || bp_history);
     if (uncond) {

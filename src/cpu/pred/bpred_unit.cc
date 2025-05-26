@@ -462,7 +462,7 @@ BPredUnit::squashHistory(ThreadID tid, PredictorHistory* &history)
                         history->indirectHistory);
     }
 
-    // This call will delete the bpHistory.
+    // This call should delete the bpHistory.
     squash(tid, history->bpHistory);
 
     delete history;
@@ -619,11 +619,6 @@ BPredUnit::squash(const InstSeqNum &squashed_sn,
                         "PC %#x -> T: %#x\n", tid,
                         hist->seqNum, hist->pc, hist->target->instAddr());
 
-            // stats.BTBUpdates++;
-            // btb->update(tid, hist->pc,
-            //                 *hist->target,
-            //                  hist->type,
-            //                  hist->inst);
             btb->incorrectTarget(hist->pc, hist->type);
         }
 

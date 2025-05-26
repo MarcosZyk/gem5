@@ -74,8 +74,7 @@ class TournamentBP : public BPredUnit
     // Base class methods.
     bool lookup(ThreadID tid, Addr pc, void* &bp_history) override;
     void updateHistories(ThreadID tid, Addr pc, bool uncond, bool taken,
-                         Addr target, const StaticInstPtr &inst,
-                         void * &bp_history) override;
+                         Addr target,  void * &bp_history) override;
     void update(ThreadID tid, Addr pc, bool taken,
                 void * &bp_history, bool squashed,
                 const StaticInstPtr & inst, Addr target) override;

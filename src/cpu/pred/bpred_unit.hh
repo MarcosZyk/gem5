@@ -161,13 +161,12 @@ class BPredUnit : public SimObject
      * @param taken Whether or not the branch was taken
      * @param target The final target of branch. Some modern
      * predictors use the target in their history.
-     * @param inst Static instruction information
      * @param bp_history Pointer that will be set to an object that
      * has the branch predictor state associated with the lookup.
      *
      */
     virtual void updateHistories(ThreadID tid, Addr pc, bool uncond,
-                           bool taken, Addr target, const StaticInstPtr &inst, void * &bp_history) = 0;
+                           bool taken, Addr target, void * &bp_history) = 0;
 
     /**
      * @param tid The thread id.

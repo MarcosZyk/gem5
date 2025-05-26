@@ -254,8 +254,7 @@ class MultiperspectivePerceptronTAGE : public MultiperspectivePerceptron
                 void * &bp_history, bool squashed,
                 const StaticInstPtr & inst, Addr target) override;
     void updateHistories(ThreadID tid, Addr pc, bool uncond, bool taken,
-                         Addr target, const StaticInstPtr &inst,
-                         void * &bp_history) override;
+                         Addr target,  void * &bp_history) override;
     void squash(ThreadID tid, void * &bp_history) override;
 
 };

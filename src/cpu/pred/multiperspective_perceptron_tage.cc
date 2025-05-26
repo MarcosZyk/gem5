@@ -671,9 +671,8 @@ MultiperspectivePerceptronTAGE::update(ThreadID tid, Addr pc, bool taken,
 
 void
 MultiperspectivePerceptronTAGE::updateHistories(ThreadID tid, Addr pc,
-                                    bool uncond, bool taken, Addr target,
-                                    const StaticInstPtr &inst,
-                                    void * &bp_history)
+                                            bool uncond, bool taken,
+                                            Addr target, void * &bp_history)
 {
     assert(uncond || bp_history);
 

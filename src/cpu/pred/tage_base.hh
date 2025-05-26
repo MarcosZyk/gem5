@@ -338,7 +338,7 @@ class TAGEBase : public SimObject
      */
     void update(ThreadID tid, Addr branch_pc, bool taken, BranchInfo* bi);
 
-    /**
+   /**
     * (Speculatively) updates global histories (path and direction).
     * Also recomputes compressed (folded) histories based on the
     * branch direction.

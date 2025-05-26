@@ -244,6 +244,7 @@ class BPredUnit : public SimObject
      * the information does not usually exist at that this point.
      * Only for instructions (branches) that hit in the BTB this information
      * is available as the BTB stores them together with the target.
+     *
      * @param inst_PC The PC to look up.
      * @return The static instruction info of the given PC if existant.
      */
@@ -255,8 +256,8 @@ class BPredUnit : public SimObject
 
     /**
      * Updates the BTB with the target of a branch.
-     * @param instPC The branch's PC that will be updated.
-     * @param target The branch's target that will be added to the BTB.
+     * @param inst_PC The branch's PC that will be updated.
+     * @param target_PC The branch's target that will be added to the BTB.
      */
     void
     BTBUpdate(ThreadID tid, Addr instPC, const PCStateBase &target)

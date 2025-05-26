@@ -453,9 +453,6 @@ class Fetch
     /** Tracks which stages are telling fetch to stall. */
     Stalls stalls[MaxThreads];
 
-    /** Enables the decoupled front-end */
-    const bool decoupledFrontEnd;
-
     /** Decode to fetch delay. */
     const Cycles decodeToFetchDelay;
 

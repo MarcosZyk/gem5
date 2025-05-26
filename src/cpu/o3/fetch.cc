@@ -84,7 +84,6 @@ Fetch::Fetch(CPU *_cpu, const BaseO3CPUParams &params)
     : fetchPolicy(params.smtFetchPolicy),
       cpu(_cpu),
       bac(nullptr), ftq(nullptr),
-      decoupledFrontEnd(params.decoupledFrontEnd),
       decodeToFetchDelay(params.decodeToFetchDelay),
       renameToFetchDelay(params.renameToFetchDelay),
       iewToFetchDelay(params.iewToFetchDelay),
@@ -501,7 +500,6 @@ Fetch::deactivateThread(ThreadID tid)
 bool
 Fetch::ftqReady(ThreadID tid, bool &status_change)
 {
-    if (!decoupledFrontEnd) return true;
     // If the FTQ is empty wait unit its filled upis available.
     // Need at least two cycles for now.
     if (!ftq->isHeadReady(tid)) {
@@ -976,7 +974,7 @@ Fetch::checkSignalsAndUpdate(ThreadID tid)
         // squash this cycle.
         // With a decoupled front-end we can only to running if the FTQ
         // is not empty otherwise we need to wait to fillup.
-        if (decoupledFrontEnd && ftq->isEmpty(tid)) {
+        if (ftq->isEmpty(tid)) {
             fetchStatus[tid] = FTQEmpty;
         } else {
             DPRINTF(Fetch,
@@ -1094,16 +1092,14 @@ Fetch::fetch(bool &status_change)
 
     FetchTargetPtr curFT = ftq->readHead(tid);
 
-    if (decoupledFrontEnd) { // #ifdef FDIP
-        assert(ftqReady(tid,status_change));
+    assert(ftqReady(tid,status_change));
 
-        if (!curFT->inRange(this_pc.instAddr())) {
-            DPRINTF(Fetch, "[tid:%i] PC:%#x not within fetch target\n",
-                            tid, this_pc);
-            bacResteer(this_pc, tid);
-            ++fetchStats.ftqStallCycles;
-            return;
-        }
+    if (!curFT->inRange(this_pc.instAddr())) {
+        DPRINTF(Fetch, "[tid:%i] PC:%#x not within fetch target\n",
+                        tid, this_pc);
+        bacResteer(this_pc, tid);
+        ++fetchStats.ftqStallCycles;
+        return;
     }
 
     // If returning from the delay of a cache miss, then update the status
@@ -1192,7 +1188,7 @@ Fetch::fetch(bool &status_change)
 
         // For the decoupled front-end also check if the FTQ
         // and the fetch target are still valid.
-        if (decoupledFrontEnd && (!ftq->isValid(tid) || !curFT)) {
+        if (!ftq->isValid(tid) || !curFT) {
             break;
         }
         assert(!curFT || curFT->inRange(this_pc.instAddr()));
@@ -1320,7 +1316,7 @@ Fetch::fetch(bool &status_change)
                 quiesce = true;
                 break;
             }
-            if (decoupledFrontEnd && !curFT) {
+            if (!curFT) {
                 break;
             }
         } while ((curMacroop || dec_ptr->instReady()) &&
@@ -1341,12 +1337,12 @@ Fetch::fetch(bool &status_change)
     } else if (blkOffset >= fetchBufferSize) {
         DPRINTF(Fetch, "[tid:%i] Done fetching, reached the end "
                 "fetch buffer.\n", tid);
-    } else if (decoupledFrontEnd && !curFT) {
+    } else if (!curFT) {
         DPRINTF(Fetch, "[tid:%i] Done fetching, reached end of fetch "
                 "target.\n", tid);
     }
 
-    if (decoupledFrontEnd && !curFT) {
+    if (!curFT) {
         DPRINTF(Fetch, "Done with FT. Pop from FTQ.\n");
         if (!ftq->updateHead(tid)) {
             // The update was not successful. The BPU predicted something
@@ -1409,8 +1405,6 @@ ThreadID
 Fetch::getFetchingThread()
 {
     if (numThreads > 1) {
-        // More that one thread is not tested with decoupled Frontend.
-        assert(!decoupledFrontEnd);
         switch (fetchPolicy) {
           case SMTFetchPolicy::RoundRobin:
             return roundRobin();

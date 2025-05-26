@@ -29,13 +29,13 @@ typedef std::shared_ptr<FetchTarget> FetchTargetPtr;
  * Refer to fetch stage to implement this stage by extracting branch prediction and next PC address
  * calculation from fetch stage.
 */
-class BAC
+class FTG
 {
   typedef branch_prediction::BranchType BranchType;
 
   public:
 
-    enum BACStatus
+    enum FTGStatus
     {
         Active,
         Inactive
@@ -53,7 +53,7 @@ class BAC
 
   private:
 
-    BACStatus _status;
+    FTGStatus _status;
 
     CPU* cpu;
 
@@ -66,7 +66,7 @@ class BAC
     TimeBuffer<FetchStruct>::wire toFetch;
 
 
-    /** Variable that tracks if BAC has written to the time buffer this
+    /** Variable that tracks if FTG has written to the time buffer this
      * cycle. Used to tell CPU if there is activity this cycle.
      */
     bool wroteToTimeBuffer;
@@ -81,20 +81,20 @@ class BAC
 
     /** Tracks which stages are telling the ftq to stall. */
     Stalls stalls[MaxThreads];
-    /** Fetch to BAC delay. */
-    const Cycles fetchToBacDelay;
-    /** Decode to fetch delay. (Same delay for BAC as for fetch) */
+    /** Fetch to FTG delay. */
+    const Cycles fetchToFTGDelay;
+    /** Decode to fetch delay. (Same delay for FTG as for fetch) */
     const Cycles decodeToFetchDelay;
-    /** Commit to fetch delay. (Same delay for BAC as for fetch) */
+    /** Commit to fetch delay. (Same delay for FTG as for fetch) */
     const Cycles commitToFetchDelay;
-    /** BAC to fetch delay. */
-    const Cycles bacToFetchDelay;
+    /** FTG to fetch delay. */
+    const Cycles ftgToFetchDelay;
 
 
     /** Per-thread status. */
-    ThreadStatus bacStatus[MaxThreads];
+    ThreadStatus ftgStatus[MaxThreads];
     /** Per-thread PC */
-    std::unique_ptr<PCStateBase> bacPC[MaxThreads];
+    std::unique_ptr<PCStateBase> ftgPC[MaxThreads];
     /** List of Active FTQ Threads */
     std::list<ThreadID> *activeThreads;
     /** Number of threads. */
@@ -110,9 +110,9 @@ class BAC
 
 
   protected:
-    struct BACStats : public statistics::Group
+    struct FTGStats : public statistics::Group
     {
-      BACStats(CPU *cpu, BAC *bac);
+      FTGStats(CPU *cpu, FTG *ftg);
 
       /** Stat for total number of idle cycles. */
       statistics::Scalar idleCycles;
@@ -152,12 +152,12 @@ class BAC
       /** Distribution of number of bytes per fetch target. */
       statistics::Distribution ftSizeDist;
 
-    } stats;
+    } statsFTG;
 
 
   public:
 
-    BAC(CPU *_cpu, const BaseO3CPUParams &params);
+    FTG(CPU *_cpu, const BaseO3CPUParams &params);
 
     std::string name() const;
 
@@ -194,7 +194,7 @@ class BAC
     void switchToActive();
     void switchToInactive();
     bool checkStall(ThreadID tid) const;
-    void updateBACStatus();
+    void updateFTGStatus();
 
     /**
      * Checks all input signals and updates the status as necessary.
@@ -214,7 +214,7 @@ class BAC
     FetchTargetPtr newFetchTarget(ThreadID tid, const PCStateBase &start_pc);
 
     /**
-     * The prediction function for the BAC stage.
+     * The prediction function for the FTG stage.
      *
      * @param inst The branch instruction.
      * @param ft The fetch target that is currently processed.
@@ -242,13 +242,13 @@ class BAC
      * After pre-decoding instruction in the fetch stage all instructions
      * are known together and a sequence number is assigned to them.
      * The fetch stage will call this function for every branch instruction
-     * to allow the BAC stage to update the branch predictor history.
+     * to allow the FTG stage to update the branch predictor history.
      */
     bool updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
                          const StaticInstPtr &inst, PCStateBase &pc,
                          const FetchTargetPtr &ft);
 
-    /** Squashes BAC for a specific thread and resets the PC. */
+    /** Squashes FTG for a specific thread and resets the PC. */
     void squash(const PCStateBase &new_pc, ThreadID tid);
 
     /**

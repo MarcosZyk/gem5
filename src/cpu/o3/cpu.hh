@@ -407,8 +407,8 @@ class CPU : public BaseCPU
 
   protected:
 
-    /** The branch and PC address calculation stage. */
-    BAC bac;
+    /** The fetch target generation stage. */
+    FTG ftg;
 
     /** The Fetch taget queue. */
     FetchTargetQueue ftq;
@@ -465,7 +465,7 @@ class CPU : public BaseCPU
      */
     enum StageIdx
     {
-        BACIdx,
+        FTGIdx,
         FetchIdx,
         DecodeIdx,
         RenameIdx,

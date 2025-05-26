@@ -226,8 +226,8 @@ class Fetch
     /** Sets pointer to time buffer used to communicate to the next stage. */
     void setFetchQueue(TimeBuffer<FetchStruct> *fq_ptr);
 
-    /** Sets pointer to branch address calculation stage and FTQ */
-    void setBACandFTQPtr(BAC *bac_ptr, FetchTargetQueue * ftq_ptr);
+    /** Sets pointer to fetch target generation stage and FTQ */
+    void setFTGAndFTQPtr(FTG *ftg_ptr, FetchTargetQueue * ftq_ptr);
 
     /** Initialize stage. */
     void startupStage();
@@ -314,8 +314,8 @@ class Fetch
                           const DynInstPtr squashInst,
                           const InstSeqNum seq_num, ThreadID tid);
 
-    /** Signal BAC to redirect. */
-    void bacResteer(const PCStateBase &new_pc, ThreadID tid);
+    /** Signal FTG to redirect. */
+    void ftgResteer(const PCStateBase &new_pc, ThreadID tid);
 
     /** Checks if a thread is stalled. */
     bool checkStall(ThreadID tid) const;
@@ -409,15 +409,15 @@ class Fetch
     /** Wire to get commit's information from backwards time buffer. */
     TimeBuffer<TimeStruct>::wire fromCommit;
 
-    /** Wire used to write any information backward to BAC. */
-    TimeBuffer<TimeStruct>::wire toBAC;
+    /** Wire used to write any information backward to FTG. */
+    TimeBuffer<TimeStruct>::wire toFTG;
 
     //Might be annoying how this name is different than the queue.
     /** Wire used to write any information heading to decode. */
     TimeBuffer<FetchStruct>::wire toDecode;
 
     /** BPredict. */
-    BAC *bac;
+    FTG *ftg;
 
     /** Fetch Target Queue */
     FetchTargetQueue *ftq;

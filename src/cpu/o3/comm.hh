@@ -114,7 +114,7 @@ struct TimeStruct
     struct FetchComm
     {
         bool block;
-        /** Signals to redirect BAC if something goes wrong. */
+        /** Signals to redirect FTG if something goes wrong. */
         bool squash;
         std::unique_ptr<PCStateBase> nextPC;
     };

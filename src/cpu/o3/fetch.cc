@@ -82,7 +82,7 @@ Fetch::IcachePort::IcachePort(Fetch *_fetch, CPU *_cpu) :
 Fetch::Fetch(CPU *_cpu, const BaseO3CPUParams &params)
     : fetchPolicy(params.smtFetchPolicy),
       cpu(_cpu),
-      bac(nullptr),
+      ftg(nullptr),
       ftq(nullptr),
       decodeToFetchDelay(params.decodeToFetchDelay),
       renameToFetchDelay(params.renameToFetchDelay),
@@ -248,8 +248,8 @@ Fetch::setTimeBuffer(TimeBuffer<TimeStruct> *time_buffer)
     fromIEW = timeBuffer->getWire(-iewToFetchDelay);
     fromCommit = timeBuffer->getWire(-commitToFetchDelay);
 
-    // Create a wire to send information to BAC
-    toBAC = timeBuffer->getWire(0);
+    // Create a wire to send information to FTG
+    toFTG = timeBuffer->getWire(0);
 }
 
 void
@@ -259,10 +259,10 @@ Fetch::setActiveThreads(std::list<ThreadID> *at_ptr)
 }
 
 void
-Fetch::setBACandFTQPtr(BAC *bac_ptr, FetchTargetQueue * ftq_ptr)
+Fetch::setFTGAndFTQPtr(FTG *ftg_ptr, FetchTargetQueue * ftq_ptr)
 {
     // Set pointer to the fetch target queue
-    bac = bac_ptr;
+    ftg = ftg_ptr;
     ftq = ftq_ptr;
 }
 
@@ -276,7 +276,7 @@ Fetch::setFetchQueue(TimeBuffer<FetchStruct> *ftb_ptr)
 void
 Fetch::startupStage()
 {
-    assert(bac != nullptr);
+    assert(ftg != nullptr);
     assert(ftq != nullptr);
     assert(priorityList.empty());
     resetStage();
@@ -731,13 +731,13 @@ Fetch::squashFromDecode(const PCStateBase &new_pc, const DynInstPtr squashInst,
 }
 
 void
-Fetch::bacResteer(const PCStateBase &new_pc, ThreadID tid)
+Fetch::ftgResteer(const PCStateBase &new_pc, ThreadID tid)
 {
-    DPRINTF(Fetch,"[tid:%i] Resteer BAC to PC: %s\n",tid, new_pc);
+    DPRINTF(Fetch,"[tid:%i] Resteer FTG to PC: %s\n",tid, new_pc);
 
-    toBAC->fetchInfo[tid].squash = true;
-    set(toBAC->fetchInfo[tid].nextPC, new_pc);
-    // Also invalidate FTQ. Shall be fixed from BAC.
+    toFTG->fetchInfo[tid].squash = true;
+    set(toFTG->fetchInfo[tid].nextPC, new_pc);
+    // Also invalidate FTQ. Shall be fixed from FTG.
     ftq->invalidate(tid);
 }
 
@@ -1092,7 +1092,7 @@ Fetch::fetch(bool &status_change)
     if (!curFT->inRange(this_pc.instAddr())) {
         DPRINTF(Fetch, "[tid:%i] PC:%#x not within fetch target\n",
                         tid, this_pc);
-        bacResteer(this_pc, tid);
+        ftgResteer(this_pc, tid);
         ++fetchStats.ftqStallCycles;
         return;
     }
@@ -1272,8 +1272,8 @@ Fetch::fetch(bool &status_change)
             // from the same block.
             predictedBranch |= this_pc.branching();
 
-            // Get the next PC from the BAC stage.
-            predictedBranch |= bac->updatePC(instruction, *next_pc, curFT);
+            // Get the next PC from the FTG stage.
+            predictedBranch |= ftg->updatePC(instruction, *next_pc, curFT);
 
             if (instruction->isControl()) {
                 cpu->fetchStats[tid]->numBranches++;
@@ -1342,7 +1342,7 @@ Fetch::fetch(bool &status_change)
         if (!ftq->updateHead(tid)) {
             // The update was not successful. The BPU predicted something
             // wrong. Squash the FTQ.
-            bacResteer(this_pc, tid);
+            ftgResteer(this_pc, tid);
         }
     }
 

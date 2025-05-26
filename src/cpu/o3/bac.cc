@@ -24,24 +24,24 @@ namespace gem5
 namespace o3
 {
 
-BAC::BAC(CPU *_cpu, const BaseO3CPUParams &params)
+FTG::FTG(CPU *_cpu, const BaseO3CPUParams &params)
     : cpu(_cpu),
       wroteToTimeBuffer(false),
-      fetchToBacDelay(params.fetchToBacDelay),
+      fetchToFTGDelay(params.fetchToFTGDelay),
       decodeToFetchDelay(params.decodeToFetchDelay),
       commitToFetchDelay(params.commitToFetchDelay),
-      bacToFetchDelay(params.bacToFetchDelay),
+      ftgToFetchDelay(params.ftgToFetchDelay),
       numThreads(params.numThreads),
       bpu(params.branchPred),
       ftq(nullptr),
       fetchTargetWidth(params.fetchTargetWidth),
-      stats(_cpu,this)
+      statsFTG(_cpu,this)
 {
     fatal_if(fetchTargetWidth < params.fetchBufferSize,
             "Fetch target width should be larger than fetch buffer size!");
 
     for (int i = 0; i < MaxThreads; i++) {
-        bacPC[i].reset(params.isa[0]->newPCState());
+        ftgPC[i].reset(params.isa[0]->newPCState());
         stalls[i] = {false, false, false};
     }
 
@@ -49,51 +49,49 @@ BAC::BAC(CPU *_cpu, const BaseO3CPUParams &params)
 }
 
 std::string
-BAC::name() const {
-    return cpu->name() + ".bac";
+FTG::name() const {
+    return cpu->name() + ".ftg";
 }
 
 
 void
-BAC::setTimeBuffer(TimeBuffer<TimeStruct> *time_buffer)
+FTG::setTimeBuffer(TimeBuffer<TimeStruct> *time_buffer)
 {
     // TODO:
     timeBuffer = time_buffer;
 
     // Create wires to get information from proper places in time buffer.
-    fromFetch = timeBuffer->getWire(-fetchToBacDelay);
+    fromFetch = timeBuffer->getWire(-fetchToFTGDelay);
     fromDecode = timeBuffer->getWire(-decodeToFetchDelay);
     fromCommit = timeBuffer->getWire(-commitToFetchDelay);
 }
 
 void
-BAC::setActiveThreads(std::list<ThreadID> *at_ptr)
+FTG::setActiveThreads(std::list<ThreadID> *at_ptr)
 {
     activeThreads = at_ptr;
 }
 
 void
-BAC::setFetchTargetQueue(FetchTargetQueue * _ptr)
+FTG::setFetchTargetQueue(FetchTargetQueue * _ptr)
 {
     // Set pointer to the fetch target queue
     ftq = _ptr;
 }
 
 void
-BAC::startupStage()
+FTG::startupStage()
 {
     resetStage();
-    // For decoupled BPU the BAC need to start together with fetch
-    // so it must start up in active state.
     switchToActive();
 }
 
 
 void
-BAC::clearStates(ThreadID tid)
+FTG::clearStates(ThreadID tid)
 {
-    bacStatus[tid] = Running;
-    set(bacPC[tid], cpu->pcState(tid));
+    ftgStatus[tid] = Running;
+    set(ftgPC[tid], cpu->pcState(tid));
 
     stalls[tid].fetch = false;
     stalls[tid].drain = false;
@@ -105,12 +103,12 @@ BAC::clearStates(ThreadID tid)
 
 
 void
-BAC::resetStage()
+FTG::resetStage()
 {
     // Setup PC and nextPC with initial state.
     for (ThreadID tid = 0; tid < numThreads; ++tid) {
-        bacStatus[tid] = Running;
-        set(bacPC[tid], cpu->pcState(tid));
+        ftgStatus[tid] = Running;
+        set(ftgPC[tid], cpu->pcState(tid));
 
         stalls[tid].fetch = false;
         stalls[tid].drain = false;
@@ -126,7 +124,7 @@ BAC::resetStage()
 
 
 void
-BAC::drainResume()
+FTG::drainResume()
 {
     DPRINTF(Drain, "Resume from draining.\n");
     for (ThreadID i = 0; i < numThreads; ++i) {
@@ -135,12 +133,12 @@ BAC::drainResume()
 }
 
 void
-BAC::drainSanityCheck() const
+FTG::drainSanityCheck() const
 {
     assert(isDrained());
 
     for (ThreadID i = 0; i < numThreads; ++i) {
-        assert(bacStatus[i] == Idle || stalls[i].drain);
+        assert(ftgStatus[i] == Idle || stalls[i].drain);
         assert(ftq->isEmpty(i));
     }
 
@@ -148,7 +146,7 @@ BAC::drainSanityCheck() const
 }
 
 bool
-BAC::isDrained() const
+FTG::isDrained() const
 {
     // Make sure the FTQ is empty and the state of all threads is idle.
     for (ThreadID i = 0; i < numThreads; ++i) {
@@ -157,7 +155,7 @@ BAC::isDrained() const
             return false;
 
         // Return false if not idle or drain stalled
-        if (bacStatus[i] != Idle) {
+        if (ftgStatus[i] != Idle) {
             return false;
         }
     }
@@ -166,7 +164,7 @@ BAC::isDrained() const
 
 
 void
-BAC::drainStall(ThreadID tid)
+FTG::drainStall(ThreadID tid)
 {
     assert(cpu->isDraining());
     assert(!stalls[tid].drain);
@@ -176,28 +174,28 @@ BAC::drainStall(ThreadID tid)
 
 
 void
-BAC::switchToActive()
+FTG::switchToActive()
 {
     if (_status == Inactive) {
         DPRINTF(Activity, "Activating stage.\n");
-        cpu->activateStage(CPU::BACIdx);
+        cpu->activateStage(CPU::FTGIdx);
         _status = Active;
     }
 }
 
 void
-BAC::switchToInactive()
+FTG::switchToInactive()
 {
     if (_status == Active) {
         DPRINTF(Activity, "Deactivating stage.\n");
-        cpu->deactivateStage(CPU::BACIdx);
+        cpu->deactivateStage(CPU::FTGIdx);
         _status = Inactive;
     }
 }
 
 
 bool
-BAC::checkStall(ThreadID tid) const
+FTG::checkStall(ThreadID tid) const
 {
     bool ret_val = false;
 
@@ -215,7 +213,7 @@ BAC::checkStall(ThreadID tid) const
 }
 
 void
-BAC::updateBACStatus()
+FTG::updateFTGStatus()
 {
     //Check Running
     std::list<ThreadID>::iterator threads = activeThreads->begin();
@@ -224,13 +222,13 @@ BAC::updateBACStatus()
     while (threads != end) {
         ThreadID tid = *threads++;
 
-        if (bacStatus[tid] == Running ||
-            bacStatus[tid] == Squashing) {
+        if (ftgStatus[tid] == Running ||
+            ftgStatus[tid] == Squashing) {
 
             if (_status == Inactive) {
                 DPRINTF(Activity, "[tid:%i] Activating stage.\n",tid);
 
-                cpu->activateStage(CPU::BACIdx);
+                cpu->activateStage(CPU::FTGIdx);
             }
 
             _status = Active;
@@ -242,7 +240,7 @@ BAC::updateBACStatus()
     if (_status == Active) {
         DPRINTF(Activity, "Deactivating stage.\n");
 
-        cpu->deactivateStage(CPU::BACIdx);
+        cpu->deactivateStage(CPU::FTGIdx);
     }
 
     _status = Inactive;
@@ -250,7 +248,7 @@ BAC::updateBACStatus()
 
 
 bool
-BAC::checkAndUpdateBPUSignals(ThreadID tid)
+FTG::checkAndUpdateBPUSignals(ThreadID tid)
 {
     // Check squash signals from commit.
     if (fromCommit->commitInfo[tid].squash) {
@@ -272,8 +270,8 @@ BAC::checkAndUpdateBPUSignals(ThreadID tid)
             bpu->squash(fromCommit->commitInfo[tid].doneSeqNum,
                         *fromCommit->commitInfo[tid].pc,
                         fromCommit->commitInfo[tid].branchTaken, tid, true);
-            stats.branchMisspredict++;
-            stats.squashBranchCommit++;
+            statsFTG.branchMisspredict++;
+            statsFTG.squashBranchCommit++;
         } else {
             bpu->squash(fromCommit->commitInfo[tid].doneSeqNum, tid);
             if (fromCommit->commitInfo[tid].mispredictInst) {
@@ -287,7 +285,7 @@ BAC::checkAndUpdateBPUSignals(ThreadID tid)
                 DPRINTF(BAC, "[tid:%i] Squashing due to "
                 "mispredict of non-control instruction: %s\n",tid);
             }
-            stats.noBranchMisspredict++;
+            statsFTG.noBranchMisspredict++;
         }
         return true;
 
@@ -312,12 +310,12 @@ BAC::checkAndUpdateBPUSignals(ThreadID tid)
             bpu->squash(fromDecode->decodeInfo[tid].doneSeqNum,
                     *fromDecode->decodeInfo[tid].nextPC,
                     fromDecode->decodeInfo[tid].branchTaken, tid, false);
-            stats.branchMisspredict++;
-            stats.squashBranchDecode++;
+            statsFTG.branchMisspredict++;
+            statsFTG.squashBranchDecode++;
         } else {
             bpu->squash(fromDecode->decodeInfo[tid].doneSeqNum,
                               tid);
-            stats.noBranchMisspredict++;
+            statsFTG.noBranchMisspredict++;
         }
         return true;
     }
@@ -325,7 +323,7 @@ BAC::checkAndUpdateBPUSignals(ThreadID tid)
 
     // Check squash signals from fetch.
     if (fromFetch->fetchInfo[tid].squash
-        && bacStatus[tid] != Squashing) {
+        && ftgStatus[tid] != Squashing) {
         DPRINTF(BAC, "Squashing from fetch with PC = %s\n",
                 *fromFetch->fetchInfo[tid].nextPC);
 
@@ -341,7 +339,7 @@ BAC::checkAndUpdateBPUSignals(ThreadID tid)
 
 
 bool
-BAC::checkSignalsAndUpdate(ThreadID tid)
+FTG::checkSignalsAndUpdate(ThreadID tid)
 {
     // Check if there's a squash signal, squash if there is.
     // Check stall signals, block if necessary.
@@ -357,67 +355,65 @@ BAC::checkSignalsAndUpdate(ThreadID tid)
         squashBpuHistories(tid);
         ftq->squash(tid);
 
-        bacStatus[tid] = Idle;
+        ftgStatus[tid] = Idle;
         return true;
     }
 
     if (checkStall(tid)) {
         // return block(tid);
-        bacStatus[tid] = Blocked;
+        ftgStatus[tid] = Blocked;
         return false;
     }
 
     // If at this point the FTQ is still invalid we need to wait for
     // A resteer/squash signal.
-    if (!ftq->isValid(tid) && bacStatus[tid] != Idle) {
+    if (!ftq->isValid(tid) && ftgStatus[tid] != Idle) {
         DPRINTF(BAC, "[tid:%i] FTQ is invalid. Wait for resteer.\n", tid);
 
-        bacStatus[tid] = Idle;
+        ftgStatus[tid] = Idle;
         return true;
     }
 
     // Check if the FTQ got blocked or unblocked
-    if ((bacStatus[tid] == Running) && ftq->isLocked(tid)) {
+    if ((ftgStatus[tid] == Running) && ftq->isLocked(tid)) {
 
         DPRINTF(BAC, "[tid:%i] FTQ is locked\n", tid);
-        bacStatus[tid] = FTQLocked;
+        ftgStatus[tid] = FTQLocked;
         return true;
     }
-    if ((bacStatus[tid] == FTQLocked) && !ftq->isLocked(tid)) {
+    if ((ftgStatus[tid] == FTQLocked) && !ftq->isLocked(tid)) {
 
         DPRINTF(BAC, "[tid:%i] FTQ not locked anymore -> Running\n", tid);
-        bacStatus[tid] = Running;
+        ftgStatus[tid] = Running;
         return true;
     }
 
     // Check if the FTQ became free in that cycle.
-    if ((bacStatus[tid] == FTQFull) && !ftq->isFull(tid)) {
+    if ((ftgStatus[tid] == FTQFull) && !ftq->isFull(tid)) {
 
         DPRINTF(BAC, "[tid:%i] FTQ not full anymore -> Running\n", tid);
-        bacStatus[tid] = Running;
+        ftgStatus[tid] = Running;
         return true;
     }
 
-    if (bacStatus[tid] == Squashing) {
+    if (ftgStatus[tid] == Squashing) {
 
         // Switch status to running after squashing FTQ and setting the PC.
         DPRINTF(BAC, "[tid:%i] Done squashing, switching to running.\n", tid);
-        bacStatus[tid] = Running;
+        ftgStatus[tid] = Running;
         return true;
     }
 
     // Now all stall/squash conditions are checked.
-    // Attempt to run the BAC if not already running.
+    // Attempt to run the FTG if not already running.
     if (ftq->isValid(tid) &&
-            ((bacStatus[tid] == Idle) || (bacStatus[tid] == Blocked))) {
+            ((ftgStatus[tid] == Idle) || (ftgStatus[tid] == Blocked))) {
 
         DPRINTF(BAC, "[tid:%i] Attempt to run\n", tid);
-        bacStatus[tid] = Running;
+        ftgStatus[tid] = Running;
         return true;
     }
 
-    // If we've reached this point, we have not gotten any signals that
-    // cause BAC to change its status.  BAC remains the same as before.
     return false;
 }
 
@@ -425,7 +421,7 @@ BAC::checkSignalsAndUpdate(ThreadID tid)
 
 
 void
-BAC::squashBpuHistories(ThreadID tid)
+FTG::squashBpuHistories(ThreadID tid)
 {
 
     DPRINTF(BAC, "%s(tid:%i): FTQ sz: %i\n", tid, __func__, ftq->size(tid));
@@ -449,16 +445,16 @@ BAC::squashBpuHistories(ThreadID tid)
 }
 
 void
-BAC::squash(const PCStateBase &new_pc, ThreadID tid)
+FTG::squash(const PCStateBase &new_pc, ThreadID tid)
 {
 
     DPRINTF(BAC, "[tid:%i] Squashing FTQ.\n", tid);
 
     // Set status to squashing.
-    bacStatus[tid] = Squashing;
+    ftgStatus[tid] = Squashing;
 
     // Set the new PC
-    set(bacPC[tid], new_pc);
+    set(ftgPC[tid], new_pc);
 
     // Then squash all fetch targets
     ftq->squash(tid);
@@ -466,7 +462,7 @@ BAC::squash(const PCStateBase &new_pc, ThreadID tid)
 
 
 void
-BAC::tick()
+FTG::tick()
 {
     bool activity = false;
     bool status_change = false;
@@ -474,19 +470,13 @@ BAC::tick()
     std::list<ThreadID>::iterator threads = activeThreads->begin();
     std::list<ThreadID>::iterator end = activeThreads->end();
 
-    // FDP ---------------------------------------------
-    // In the decoupled frontend the BAC stage is active as all
-    // others. Its main purpose is generate fetch targets by using
-    // the branch predction unit.
-
     while (threads != end) {
         ThreadID tid = *threads++;
 
         // Check stall and squash signals first.
         status_change |= checkSignalsAndUpdate(tid);
 
-        // Generate fetch targets if BAC is in running state
-        if (bacStatus[tid] == Running) {
+        if (ftgStatus[tid] == Running) {
             generateFetchTargets(tid, status_change);
             activity = true;
         }
@@ -494,7 +484,7 @@ BAC::tick()
     }
 
     if (status_change) {
-        updateBACStatus();
+        updateFTGStatus();
     }
 
     if (activity) {
@@ -506,18 +496,18 @@ BAC::tick()
 
 
 FetchTargetPtr
-BAC::newFetchTarget(ThreadID tid, const PCStateBase &start_pc)
+FTG::newFetchTarget(ThreadID tid, const PCStateBase &start_pc)
 {
     auto ft = std::make_shared<FetchTarget>(start_pc,
                                             cpu->getAndIncrementFTSeq());
 
     DPRINTF(BAC, "Create new fetch target ftn:%llu\n", ft->getFetchSeqNum());
-    stats.fetchTargets++;
+    statsFTG.fetchTargets++;
     return ft;
 }
 
 bool
-BAC::predict(ThreadID tid, const StaticInstPtr &inst,
+FTG::predict(ThreadID tid, const StaticInstPtr &inst,
              const FetchTargetPtr &ft, PCStateBase &pc)
 {
 
@@ -537,7 +527,7 @@ BAC::predict(ThreadID tid, const StaticInstPtr &inst,
 
 
 void
-BAC::generateFetchTargets(ThreadID tid, bool &status_change)
+FTG::generateFetchTargets(ThreadID tid, bool &status_change)
 {
     /**
      * This function implements the head of the decoupled frontend.
@@ -562,7 +552,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
     // Get a reference to the current PC state for this thread.
     // The search itself is done on the instruction address to speed up
     // simulation time.
-    PCStateBase &cur_pc = *bacPC[tid];
+    PCStateBase &cur_pc = *ftgPC[tid];
     Addr search_addr = cur_pc.instAddr();
     Addr start_addr = search_addr;
 
@@ -624,9 +614,9 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
                 tid, curFT->getFetchSeqNum(), cur_pc.instAddr(),
                 predict_taken, next_pc->instAddr());
 
-        stats.branches++;
+        statsFTG.branches++;
         if (predict_taken) {
-            stats.predTakenBranches++;
+            statsFTG.predTakenBranches++;
         }
 
     } else {
@@ -650,7 +640,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
     // fetch has consumed one.
     if (ftq->isFull(tid)) {
         DPRINTF(BAC, "FTQ full\n");
-        bacStatus[tid] = FTQFull;
+        ftgStatus[tid] = FTQFull;
         status_change = true;
     }
 
@@ -668,7 +658,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
     // rare this is not implemented.
     if (staticInst
         && staticInst->isMicroop() && !staticInst->isLastMicroop()) {
-        stats.branchesNotLastuOp++;
+        statsFTG.branchesNotLastuOp++;
         // The target is always to itself no matter if its taken or not.
         // assert(next_pc->instAddr() == search_addr);
         DPRINTF(BAC, "Branch detected which is not the last uOp %s. "
@@ -682,7 +672,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
             tid, curFT->getFetchSeqNum(), (search_addr - start_addr),
             branch_found, *next_pc);
 
-    stats.ftSizeDist.sample(search_addr - start_addr);
+    statsFTG.ftSizeDist.sample(search_addr - start_addr);
 
     // Finally set the BPU PC to the next FT in the next cycle
     set(cur_pc, *next_pc);
@@ -696,7 +686,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
 
 
 bool
-BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
+FTG::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
                      const StaticInstPtr &inst, PCStateBase &pc,
                      const FetchTargetPtr &ft)
 {
@@ -706,7 +696,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
 
     assert(ft->getFetchSeqNum() == ftq->readHead(tid)->getFetchSeqNum());
     BranchType brType = branch_prediction::getBranchType(inst);
-    stats.preDecUpdate[brType]++;
+    statsFTG.preDecUpdate[brType]++;
 
     DPRINTF(BAC, "%s(tid:%i, sn:%lu, inst: %s, PC:%#x, FT[%llu, taken:%i, "
             "end:#%#x)\n", __func__, tid, seqNum,
@@ -742,7 +732,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     // prediction
     if (hist && (hist->type != brType)) {
         DPRINTF(Branch, "Branch types dont match. Delete history\n", tid);
-        stats.typeMissmatch++;
+        statsFTG.typeMissmatch++;
 
         // Push the history back to the FTQ to allow it to be sqaushed
         // in correct order. Then squash all histories right away.
@@ -750,9 +740,9 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
         hist = nullptr;
         squashBpuHistories(tid);
 
-        // Lock the FTQ. The complex instruction needs to
-        // be completed before unlocking. Unlocking is performed by resetting
-        // the BAC stage.
+        // Lock the FTQ.
+        // The complex instruction needs to be completed before unlocking.
+        // Unlocking is performed by resetting the FTG stage.
         ftq->lock(tid);
     }
 
@@ -760,16 +750,16 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     // the history is already used. We only predict the first branch in a
     // complex instruction (see createFetchTarget() function).
     // In that case we squash the FTQ and lock it until the full instruction
-    // Afterwards the fetch stage will reset the BAC stage with a
-    // bacResteer() call. Hence, operation for complex instructions is:
-    // Detecting multi branch inst. -> lock FTQ util inst. done. -> reset BAC.
+    // Afterwards the fetch stage will reset the FTG stage with a
+    // ftgResteer() call. Hence, operation for complex instructions is:
+    // Detecting multi branch inst. -> lock FTQ util inst. done. -> reset FTG.
     //
     // Note we might end up here multiple times until the full instruction
     // is completed.
     if (inst->isMicroop() && !inst->isLastMicroop() && (hist == nullptr)) {
 
         DPRINTF(Branch, "No history for complex instruction found. \n");
-        stats.multiBranchInst++;
+        statsFTG.multiBranchInst++;
 
         // First squash all histories that are already in the FTQ
         // to have a clean state.
@@ -777,7 +767,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
 
         // Then lock the FTQ. The complex instruction needs to
         // be completed before unlocking. Unlocking is performed by
-        // resetting the BAC stage with a bacResteer() call from the
+        // resetting the FTG stage with a ftgResteer() call from the
         // fetch stage.
         ftq->lock(tid);
 
@@ -792,9 +782,9 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     if (hist == nullptr) {
         DPRINTF(BAC, "[tid:%i, sn:%llu] No branch history for PC:%#x\n",
                 tid, seqNum, pc.instAddr());
-        stats.noHistType[brType]++;
+        statsFTG.noHistType[brType]++;
 
-        // The branch was not detected by the BAC stage in the first place
+        // The branch was not detected by the FTG stage in the first place
         // because the BTB did not had an entry for this PC. It can happen
         // if this is the first time the branch is encountered, the branch
         // was never taken before, or the entry got evicted.
@@ -843,7 +833,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
 
 
 bool
-BAC::updatePC(const DynInstPtr &inst,
+FTG::updatePC(const DynInstPtr &inst,
               PCStateBase &fetch_pc, FetchTargetPtr &ft)
 {
     // This function will update the fetch PC to the next instruction.
@@ -870,10 +860,10 @@ BAC::updatePC(const DynInstPtr &inst,
         inst->setPredTarg(fetch_pc);
         inst->setPredTaken(predict_taken);
 
-        ++stats.branches;
+        ++statsFTG.branches;
 
         if (predict_taken) {
-            ++stats.predTakenBranches;
+            ++statsFTG.predTakenBranches;
         }
 
     } else {
@@ -906,20 +896,20 @@ BAC::updatePC(const DynInstPtr &inst,
 
 
 void
-BAC::profileCycle(ThreadID tid)
+FTG::profileCycle(ThreadID tid)
 {
-    switch (bacStatus[tid]) {
+    switch (ftgStatus[tid]) {
     case Idle:
-        stats.idleCycles++;
+        statsFTG.idleCycles++;
         break;
     case Running:
-        stats.runCycles++;
+        statsFTG.runCycles++;
         break;
     case Squashing:
-        stats.squashCycles++;
+        statsFTG.squashCycles++;
         break;
     case FTQFull:
-        stats.ftqFullCycles++;
+        statsFTG.ftqFullCycles++;
         break;
 
     default:
@@ -928,31 +918,31 @@ BAC::profileCycle(ThreadID tid)
 }
 
 
-BAC::BACStats::BACStats(o3::CPU *cpu, BAC *bac)
-    : statistics::Group(cpu, "bac"),
+FTG::FTGStats::FTGStats(o3::CPU *cpu, FTG *ftg)
+    : statistics::Group(cpu, "ftg"),
 
     ADD_STAT(idleCycles, statistics::units::Cycle::get(),
-            "Number of cycles BAC is idle. (PC invalid)"),
+            "Number of cycles FTG is idle. (PC invalid)"),
     ADD_STAT(runCycles, statistics::units::Cycle::get(),
-            "Number of cycles BAC is running"),
+            "Number of cycles FTG is running"),
     ADD_STAT(squashCycles, statistics::units::Cycle::get(),
-            "Number of cycles BAC is squashing"),
+            "Number of cycles FTG is squashing"),
     ADD_STAT(ftqFullCycles, statistics::units::Cycle::get(),
-            "Number of cycles BAC has spent waiting for FTQ to become free"),
+            "Number of cycles FTG has spent waiting for FTQ to become free"),
 
     ADD_STAT(fetchTargets, statistics::units::Count::get(),
             "Number of fetch targets created "),
     ADD_STAT(branches, statistics::units::Count::get(),
-            "Number of branches that BAC encountered"),
+            "Number of branches that FTG encountered"),
     ADD_STAT(predTakenBranches, statistics::units::Count::get(),
-            "Number of branches that BAC predicted taken."),
+            "Number of branches that FTG predicted taken."),
     ADD_STAT(branchesNotLastuOp, statistics::units::Count::get(),
              "Number of branches that fetch encountered which are not the "
              "last uOp within a macrooperation. Jump to itself."),
     ADD_STAT(branchMisspredict, statistics::units::Count::get(),
-            "Number of branches that BAC has predicted taken"),
+            "Number of branches that FTG has predicted taken"),
     ADD_STAT(noBranchMisspredict, statistics::units::Count::get(),
-            "Number of branches that BAC has predicted taken"),
+            "Number of branches that FTG has predicted taken"),
     ADD_STAT(squashBranchDecode, statistics::units::Count::get(),
             "Number of branches squashed from decode"),
     ADD_STAT(squashBranchCommit, statistics::units::Count::get(),
@@ -972,7 +962,7 @@ BAC::BACStats::BACStats(o3::CPU *cpu, BAC *bac)
 
     ftSizeDist
         .init(/* base value */ 0,
-              /* last value */ bac->fetchTargetWidth,
+              /* last value */ ftg->fetchTargetWidth,
               /* bucket size */ 4)
         .flags(statistics::pdf);
 

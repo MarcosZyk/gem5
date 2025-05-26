@@ -101,6 +101,9 @@ class MPP_TAGE : public TAGEBase
     void updateHistories(ThreadID tid, Addr branch_pc, bool taken,
                          TAGEBase::BranchInfo* b, bool speculative,
                          const StaticInstPtr &inst, Addr target) override;
+
+    void updatePathAndGlobalHistory(ThreadHistory& tHist, int brtype,
+                                    bool taken, Addr branch_pc, Addr target);
 };
 
 class MPP_LoopPredictor : public LoopPredictor

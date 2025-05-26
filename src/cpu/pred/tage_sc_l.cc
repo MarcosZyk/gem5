@@ -258,6 +258,7 @@ TAGE_SC_L_TAGE::updatePathAndGlobalHistory(
         tmp >>= 1;
         int pathbit = (path & 127);
         path >>= 1;
+        updateGHist(tHist.gHist, dir, tHist.globalHistory, tHist.ptGhist);
         tHist.pathHist = (tHist.pathHist << 1) ^ pathbit;
         if (truncatePathHist) {
             // The 8KB implementation does not do this truncation

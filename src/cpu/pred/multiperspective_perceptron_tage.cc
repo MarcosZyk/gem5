@@ -211,27 +211,38 @@ MPP_TAGE::updateHistories(
     // speculation is not implemented
     assert(! speculative);
 
+    ThreadHistory& tHist = threadHistory[tid];
+
     int brtype = inst->isDirectCtrl() ? 0 : 2;
     if (! inst->isUncondCtrl()) {
         ++brtype;
     }
+    updatePathAndGlobalHistory(tHist, brtype, taken, branch_pc, target);
+}
 
+void
+MPP_TAGE::updatePathAndGlobalHistory(
+    ThreadHistory& tHist, int brtype, bool taken, Addr branch_pc, Addr target)
+{
     // TAGE update
     int tmp = (branch_pc << 1) + taken;
     int path = branch_pc;
 
     int maxt = (brtype & 1) ? 1 : 4;
 
-    // Update path history
     for (int t = 0; t < maxt; t++) {
+        bool dir = (tmp & 1);
+        tmp >>= 1;
         int pathbit = (path & 127);
         path >>= 1;
-        threadHistory[tid].pathHist
-                        = (threadHistory[tid].pathHist << 1) ^ pathbit;
+        updateGHist(tHist.gHist, dir, tHist.globalHistory, tHist.ptGhist);
+        tHist.pathHist = (tHist.pathHist << 1) ^ pathbit;
+        for (int i = 1; i <= nHistoryTables; i++) {
+            tHist.computeIndices[i].update(tHist.gHist);
+            tHist.computeTags[0][i].update(tHist.gHist);
+            tHist.computeTags[1][i].update(tHist.gHist);
+        }
     }
-
-    // Update global history
-    updateGHist(tid, tmp, maxt);
 }
 
 bool

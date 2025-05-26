@@ -121,9 +121,10 @@ class TAGE_SC_L_TAGE : public TAGEBase
 
     unsigned getUseAltIdx(TAGEBase::BranchInfo* bi, Addr branch_pc) override;
 
-    void updateHistories(ThreadID tid, Addr branch_pc, bool speculative,
-                         bool taken, Addr target, const StaticInstPtr & inst,
-                         TAGEBase::BranchInfo* bi) override;
+    void updateHistories(
+        ThreadID tid, Addr branch_pc, bool taken, TAGEBase::BranchInfo* b,
+        bool speculative, const StaticInstPtr &inst,
+        Addr target) override;
 
     int bindex(Addr pc_in) const override;
     int gindex(ThreadID tid, Addr pc, int bank) const override;

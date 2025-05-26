@@ -201,9 +201,9 @@ MPP_TAGE::adjustAlloc(bool & alloc, bool taken, bool pred_taken)
 }
 
 void
-MPP_TAGE::updateHistories(ThreadID tid, Addr branch_pc, bool speculative,
-                          bool taken, Addr target, const StaticInstPtr &inst,
-                          TAGEBase::BranchInfo* bi)
+MPP_TAGE::updateHistories(
+    ThreadID tid, Addr branch_pc, bool taken, TAGEBase::BranchInfo* b,
+    bool speculative, const StaticInstPtr &inst, Addr target)
 {
     if (speculative != speculativeHistUpdate) {
         return;

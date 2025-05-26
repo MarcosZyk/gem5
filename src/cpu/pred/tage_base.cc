@@ -623,9 +623,9 @@ TAGEBase::updatePathAndGlobalHistory(ThreadID tid, int brtype, bool taken,
 
 
 void
-TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool speculative,
-                          bool taken, Addr target,
-                          const StaticInstPtr & inst, BranchInfo* bi)
+TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool taken,
+                          BranchInfo* bi, bool speculative,
+                          const StaticInstPtr &inst, Addr target)
 {
     if (speculative != speculativeHistUpdate) {
         return;

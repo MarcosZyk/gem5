@@ -319,9 +319,11 @@ class TAGEBase : public SimObject
      * @param bi Pointer to information on the prediction
      * recorded at prediction time.
      */
-    virtual void updateHistories(ThreadID tid, Addr branch_pc,
-                            bool speculative, bool taken, Addr target,
-                            const StaticInstPtr &inst, BranchInfo* bi);
+    virtual void updateHistories(
+        ThreadID tid, Addr branch_pc, bool taken, BranchInfo* b,
+        bool speculative,
+        const StaticInstPtr & inst = nullStaticInstPtr,
+        Addr target = MaxAddr);
     /**
      * Records the current state of the histories to be able to restore it
      * in case of a mispredicted speculative update.

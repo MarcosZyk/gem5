@@ -104,8 +104,7 @@ class LTAGE : public TAGE
     {
         LoopPredictor::BranchInfo *lpBranchInfo;
         LTageBranchInfo(TAGEBase &tage, LoopPredictor &lp)
-          : TageBranchInfo(tage),
-            lpBranchInfo(lp.makeBranchInfo())
+          : TageBranchInfo(tage), lpBranchInfo(lp.makeBranchInfo())
         {}
 
         virtual ~LTageBranchInfo()

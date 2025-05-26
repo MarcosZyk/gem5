@@ -372,8 +372,7 @@ TAGE_SC_L::predict(ThreadID tid, Addr pc, bool cond_branch, void* &b)
 {
     TageSCLBranchInfo *bi = new TageSCLBranchInfo(*tage,
                                                   *statisticalCorrector,
-                                                  *loopPredictor,
-                                                  pc, cond_branch);
+                                                  *loopPredictor);
     b = (void*)(bi);
 
     bool pred_taken = tage->tagePredict(tid, pc, cond_branch,

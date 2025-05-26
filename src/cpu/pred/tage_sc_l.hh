@@ -187,9 +187,8 @@ class TAGE_SC_L: public LTAGE
         StatisticalCorrector::BranchInfo *scBranchInfo;
 
         TageSCLBranchInfo(TAGEBase &tage, StatisticalCorrector &sc,
-                          LoopPredictor &lp, Addr pc, bool cond_branch)
-          : LTageBranchInfo(tage, lp, pc, cond_branch),
-            scBranchInfo(sc.makeBranchInfo())
+                          LoopPredictor &lp)
+          : LTageBranchInfo(tage, lp), scBranchInfo(sc.makeBranchInfo())
         {}
 
         virtual ~TageSCLBranchInfo()

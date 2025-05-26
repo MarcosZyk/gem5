@@ -76,8 +76,7 @@ class MPP_TAGE : public TAGEBase
   public:
     struct BranchInfo : public TAGEBase::BranchInfo
     {
-        BranchInfo(TAGEBase &tage)
-        : TAGEBase::BranchInfo(tage)
+        BranchInfo(TAGEBase &tage) : TAGEBase::BranchInfo(tage)
         {}
         virtual ~BranchInfo()
         {}

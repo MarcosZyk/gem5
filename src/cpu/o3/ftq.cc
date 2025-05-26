@@ -16,7 +16,7 @@ namespace o3
 /** Fetch Target Methods -------------------------------- */
 FetchTarget::FetchTarget(const PCStateBase &start_pc, InstSeqNum seq_num)
     : ftSeqNum(seq_num),
-      is_branch(false), taken(false),
+      end_with_branch(false), taken(false),
       bpu_history(nullptr)
 {
     set(startPC , start_pc);
@@ -31,7 +31,7 @@ FetchTarget::finalize(const PCStateBase &exit_pc, InstSeqNum sn,
     set(endPC, exit_pc);
     set(predPC, pred_pc);
     taken = pred_taken;
-    is_branch = _is_branch;
+    end_with_branch = _is_branch;
 }
 
 

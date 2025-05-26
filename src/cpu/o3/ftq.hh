@@ -35,22 +35,23 @@ class FetchTarget
 
   private:
 
-    std::unique_ptr<PCStateBase> startPC;
-
-
-    std::unique_ptr<PCStateBase> endPC;
-
-    /** Predicted target address of the fetch target.
-     *  Only valid when the ft ends with branch. */
-    std::unique_ptr<PCStateBase> predPC;
-
-    /* Fetch targets sequence number */
+    /** Sequence number/runtime id */
     const FTSeqNum ftSeqNum;
 
-    /** Whether the exit instruction is a branch */
-    bool is_branch;
+    /** Instruction fetch/prefetch is based on instruction block.
+     * We fetch consecutive instructions in one access.
+     */
+    std::unique_ptr<PCStateBase> startPC;
+    std::unique_ptr<PCStateBase> endPC;
 
-    /** If the exit branch is taken */
+    /** instruction type of last one in this target, normal or branch */
+    bool end_with_branch;
+
+    /** The predicted address of next possible fetch target.
+     * Only works when this target ends with a branch*/
+    std::unique_ptr<PCStateBase> predPC;
+
+    /** debug usage, whether the branch, last instruction, is taken */
     bool taken;
 
   public:
@@ -71,12 +72,13 @@ class FetchTarget
         return addr >= startAddress() && addr <= endAddress();
     }
 
-    bool isExitInst(Addr addr) {
+    bool isEndInst(Addr addr) {
         return addr == endAddress();
     }
 
-    bool isExitBranch(Addr addr) {
-        return (addr == endAddress()) && is_branch;
+    /** check whether the inst of given address is the last one of this target and is a branch*/
+    bool isEndBranch(Addr addr) {
+        return (addr == endAddress()) && end_with_branch;
     }
 
     bool hasExceeded(Addr addr) {
@@ -86,21 +88,12 @@ class FetchTarget
     /** Returns the fetch target number. */
     FTSeqNum ftNum() { return ftSeqNum; }
 
-    /** Set the predicted target of the exit branch. */
-    void setPredTarg(const PCStateBase &pred_pc) { set(predPC, pred_pc); }
-
     /** Read the predicted target of the exit branch. */
     const PCStateBase &readPredTarg() { return *predPC; }
 
-    /** Read the start address PC */
-    const PCStateBase &readStartPC() { return *startPC; }
-
-    /** Read the exit/end address PC */
-    const PCStateBase &readEndPC() { return *endPC; }
-
 
     /** Check if the exit branch was predicted taken. */
-    bool predTaken() { return taken; }
+    bool isTaken() { return taken; }
 
     /** Complete a fetch target with the exit instruction */
     void finalize(const PCStateBase &exit_pc, InstSeqNum sn, bool _is_branch,

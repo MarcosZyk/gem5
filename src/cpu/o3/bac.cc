@@ -734,7 +734,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     DPRINTF(BAC, "%s(tid:%i, sn:%lu, inst: %s, PC:%#x, FT[%llu, taken:%i, "
             "end:#%#x)\n", __func__, tid, seqNum,
             branch_prediction::toString(brType), pc.instAddr(), ft->ftNum(),
-            ft->predTaken(), ft->endAddress());
+            ft->isTaken(), ft->endAddress());
 
     bool target_set = false;
     BPredUnit::PredictorHistory* hist = nullptr;
@@ -923,7 +923,7 @@ BAC::updatePC(const DynInstPtr &inst,
         // to be a branch.
         // If the instruction is micro coded check if its the last uOp.
         // Also remove the fetch target if the FTQ became invalid.
-        if ((ft->isExitInst(inst->pcState().instAddr())
+        if ((ft->isEndInst(inst->pcState().instAddr())
                 && (!inst->isMicroop() || inst->isLastMicroop()))
             || !ftq->isValid(tid)) {
 

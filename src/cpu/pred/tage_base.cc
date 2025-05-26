@@ -190,6 +190,25 @@ TAGEBase::calculateParameters()
     }
 }
 
+void
+TAGEBase::btbUpdate(ThreadID tid, Addr branch_pc, BranchInfo* &bi)
+{
+    if (speculativeHistUpdate) {
+        ThreadHistory& tHist = threadHistory[tid];
+        DPRINTF(Tage, "BTB miss resets prediction: %lx\n", branch_pc);
+        assert(tHist.gHist == &tHist.globalHistory[tHist.ptGhist]);
+        tHist.gHist[0] = 0;
+        for (int i = 1; i <= nHistoryTables; i++) {
+            tHist.computeIndices[i].comp = bi->ci[i];
+            tHist.computeTags[0][i].comp = bi->ct0[i];
+            tHist.computeTags[1][i].comp = bi->ct1[i];
+            tHist.computeIndices[i].update(tHist.gHist);
+            tHist.computeTags[0][i].update(tHist.gHist);
+            tHist.computeTags[1][i].update(tHist.gHist);
+        }
+    }
+}
+
 int
 TAGEBase::bindex(Addr pc_in) const
 {
@@ -310,13 +329,13 @@ TAGEBase::updateGHist(uint8_t * &h, bool dir, uint8_t * tab, int &pt)
 {
     if (pt == 0) {
         DPRINTF(Tage, "Rolling over the histories\n");
-        // Copy beginning of globalHistoryBuffer to end, such that
-        // the last maxHist outcomes are still reachable
-        // through pt[0 .. maxHist - 1].
-        for (int i = 0; i < maxHist; i++)
-            tab[histBufferSize - maxHist + i] = tab[i];
-        pt =  histBufferSize - maxHist;
-        h = &tab[pt];
+         // Copy beginning of globalHistoryBuffer to end, such that
+         // the last maxHist outcomes are still reachable
+         // through pt[0 .. maxHist - 1].
+         for (int i = 0; i < maxHist; i++)
+             tab[histBufferSize - maxHist + i] = tab[i];
+         pt =  histBufferSize - maxHist;
+         h = &tab[pt];
     }
     pt--;
     h--;
@@ -820,7 +839,6 @@ TAGEBase::getGHR(ThreadID tid, BranchInfo *bi) const
 
     return val;
 }
-
 
 TAGEBase::TAGEBaseStats::TAGEBaseStats(
     statistics::Group *parent, unsigned nHistoryTables)

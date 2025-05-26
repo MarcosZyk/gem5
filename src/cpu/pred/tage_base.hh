@@ -489,6 +489,7 @@ class TAGEBase : public SimObject
         return false;
     }
 
+    void btbUpdate(ThreadID tid, Addr branch_addr, BranchInfo* &bi);
     unsigned getGHR(ThreadID tid, BranchInfo *bi) const;
     int8_t getCtr(int hitBank, int hitBankIndex) const;
     unsigned getTageCtrBits() const;

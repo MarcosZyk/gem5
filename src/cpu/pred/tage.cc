@@ -140,7 +140,7 @@ TAGE::updateHistories(ThreadID tid, Addr pc, bool uncond, bool taken,
 
     // Update the global history for all branches
     TageBranchInfo *bi = static_cast<TageBranchInfo*>(bp_history);
-    tage->updateHistories(tid, pc, taken, bi->tageBranchInfo, true, inst, target);
+    tage->updateHistories(tid, pc, taken, bi->tageBranchInfo, true, nullStaticInstPtr, target);
 }
 
 void

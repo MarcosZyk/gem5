@@ -172,21 +172,21 @@ def get_simulator(args):
 
 
 
-if __name__ == "__main__":
+args = get_args()
+simulator = get_simulator(args)
 
-    args = get_args()
-    simulator = get_simulator(args)
-
-    print(
-        "Running workload [{}] with prefetcher [{}]".format(
-            args.workload, args.prefetcher
-        )
+print(
+    "Running workload [{}] with prefetcher [{}]".format(
+        args.workload, args.prefetcher
     )
+)
 
-    simulator.run()
+simulator.run()
 
-    print(
-        "Exiting @ tick {} because {}.".format(
-            simulator.get_current_tick(), simulator.get_last_exit_event_cause()
-        )
+print(
+    "Exiting @ tick {} because {}.".format(
+        simulator.get_current_tick(), simulator.get_last_exit_event_cause()
     )
+)
+
+

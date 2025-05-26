@@ -101,7 +101,7 @@ class MPP_TAGE : public TAGEBase
     void adjustAlloc(bool & alloc, bool taken, bool pred_taken) override;
     void updateHistories(ThreadID tid, Addr branch_pc, bool taken,
                          TAGEBase::BranchInfo* b, bool speculative,
-                         const StaticInstPtr & inst, Addr target) override;
+                         const StaticInstPtr &inst, Addr target) override;
 };
 
 class MPP_LoopPredictor : public LoopPredictor

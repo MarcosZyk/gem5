@@ -418,7 +418,7 @@ TAGE_SC_L::predict(ThreadID tid, Addr pc, bool cond_branch, void* &b)
 
 void
 TAGE_SC_L::update(ThreadID tid, Addr pc, bool taken, void *&bp_history,
-                  bool squashed, const StaticInstPtr & inst, Addr target)
+        bool squashed, const StaticInstPtr & inst, Addr target)
 {
     assert(bp_history);
 

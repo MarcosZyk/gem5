@@ -69,7 +69,7 @@ TAGE::TAGE(const TAGEParams &params) : BPredUnit(params), tage(params.tage)
 // PREDICTOR UPDATE
 void
 TAGE::update(ThreadID tid, Addr pc, bool taken, void * &bp_history,
-             bool squashed, const StaticInstPtr & inst, Addr target)
+              bool squashed, const StaticInstPtr & inst, Addr target)
 {
     assert(bp_history);
 

@@ -107,9 +107,9 @@ class TAGE: public BPredUnit
     void updateHistories(ThreadID tid, Addr pc, bool uncond, bool taken,
                          Addr target, const StaticInstPtr &inst,
                          void * &bp_history) override;
-    void update(ThreadID tid, Addr pc, bool taken, void * &bp_history,
-                bool squashed, const StaticInstPtr &inst,
-                Addr target) override;
+    void update(ThreadID tid, Addr pc, bool taken,
+                void * &bp_history, bool squashed,
+                const StaticInstPtr & inst, Addr target) override;
     virtual void squash(ThreadID tid, void * &bp_history) override;
     virtual void branchPlaceholder(ThreadID tid, Addr pc,
                                    bool uncond, void * &bp_history) override;

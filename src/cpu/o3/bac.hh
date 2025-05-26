@@ -159,11 +159,6 @@ class BAC
 
     BAC(CPU *_cpu, const BaseO3CPUParams &params);
 
-
-    // Interfaces to CPU ----------------------------------
-    // These functions are to manage the BAC stage
-    // and the interface with the remaining CPU.
-
     std::string name() const;
 
     void regProbePoints() {}
@@ -181,20 +176,8 @@ class BAC
 
     void setFetchTargetQueue(FetchTargetQueue * _ptr);
 
-
-    /* ----------------------------------------------------------------
-     * Next PC address calculation
-     *
-     * To update the PC the fetch stage will call the updatePC() method
-     * with the currently pre-decoded instruction.
-     * The BAC stage will then check if the instruction is a branch and
-     * either preform the branch prediction (non-decoupled scenario) or
-     * read the branch prediction from the currentently processed fetch
-     * target (decoupled scenario).
-     */
     /**
-     * Calculate the next PC address depending on the instruction type
-     * and the branch prediction.
+     * Calculate the next PC address depending on the instruction and the branch prediction.
      * @param inst The currently processed dynamic instruction.
      * @param fetch_pc The current fetch PC passed in by reference. It will
      * be updated with what the next PC will be.
@@ -231,10 +214,8 @@ class BAC
     FetchTargetPtr newFetchTarget(ThreadID tid, const PCStateBase &start_pc);
 
     /**
-     * The prediction function for the BAC stage. In the decoupled scenario
-     * the branch history is not added to the BPUs very own predictor history
-     * because at the moment a prediction is made the sequence number in
-     * not known.
+     * The prediction function for the BAC stage.
+     *
      * @param inst The branch instruction.
      * @param ft The fetch target that is currently processed.
      * @param PC The predicted PC is passed back through this parameter.
@@ -246,45 +227,22 @@ class BAC
 
     /**
      * Main function that feeds the FTQ with new fetch targets.
-     * By leveraging the BTB up to N consecutive addresses are searched
-     * to detect a branch instruction. For every BTB hit the direction
-     * predictor is asked to make a prediction.
-     * In every cycle one fetch target is created. A fetch target ends
-     * once the first branch instruction is detected or the maximum
-     * search bandwidth for a cycle is reached.
+     *
+     * By leveraging the BTB, up to N consecutive addresses are searched to detect a branch instruction.
+     *
+     * For every BTB hit the direction, predictor is asked to make a prediction.
+     *
+     * In every cycle one fetch target is created. A fetch target ends once the first branch instruction is detected
+     * or the maximum earch bandwidth for a cycle is reached.
      **/
     void generateFetchTargets(ThreadID tid, bool &status_change);
 
 
-    /** Pre-decode update -----------------------------------------
-     * After predecoding instruction in the fetch stage all instructions
+    /**
+     * After pre-decoding instruction in the fetch stage all instructions
      * are known together and a sequence number is assigned to them.
      * The fetch stage will call this function for every branch instruction
      * to allow the BAC stage to update the branch predictor history.
-     *
-     * There can be the following two cases:
-     * - The branch was detected by the BAC stage and a prediction was made.
-     *   In that case the branch history is moved from the FTQ to the BPU.
-     *
-     * - The branch was not detected by the BAC stage. In that case a "dummy"
-     *   branch history is created and inserted into the BPU. For this dummy
-     *   prediction it is assumed that the branch is not taken.
-     *   If it turns unconditional or is taken decode or commit will squash
-     *   the branch.
-     *
-     * This function performs the following steps:
-     *  - For every branch where a prediction was made in the first place
-     * It moves the branch history from the FTQ to the BPU.
-     *
-     * Together with inserting an instruction into the instruction queue
-     *  instruction matches the predicted
-     * instruction type. If so update the information with the new.
-     * In case the types dont match something is wrong and we need
-     * to squash. (should not be the case.)
-     * @param seq_num The branches sequence that we want to update.
-     * @param inst The new pre-decoded branch instruction.
-     * @param tid The thread id.
-     * @return Returns if the update was successful.
      */
     bool updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
                          const StaticInstPtr &inst, PCStateBase &pc,

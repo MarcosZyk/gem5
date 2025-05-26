@@ -304,7 +304,7 @@ class TAGEBase : public SimObject
      */
     void baseUpdate(Addr pc, bool taken, BranchInfo* bi);
 
-    /**
+   /**
     * (Speculatively) updates the global branch history.
     * @param h Reference to pointer to global branch history.
     * @param dir (Predicted) outcome to update the histories
@@ -314,7 +314,7 @@ class TAGEBase : public SimObject
     */
     void updateGHist(uint8_t * &h, bool dir, uint8_t * tab, int &PT);
 
-   /**
+    /**
      * Internal history update function. This function shifts
      * nBits into the global history vector. If the update
      * is speculative the functions makes a copy of the
@@ -339,20 +339,20 @@ class TAGEBase : public SimObject
     void update(ThreadID tid, Addr branch_pc, bool taken, BranchInfo* bi);
 
     /**
-     * (Speculatively) updates global histories (path and direction).
-     * It manages squashing of histories in case of a mispredicted.
-     * In that case it also recomputes compressed (folded) histories based on
-     * the squashed state
-     * @param tid The thread ID to select the histories to update.
-     * @param branch_pc The unshifted branch PC.
-     * @param speculative Whether the update is speculative or not
-     * @param taken (Predicted) branch direction.
-     * @param target (Predicted) branch target.
-     * @param inst The branch instruction. Some predictors
-     * do different things depending on the branch type.
-     * @param bi Pointer to information on the prediction
-     * recorded at prediction time.
-     */
+    * (Speculatively) updates global histories (path and direction).
+    * Also recomputes compressed (folded) histories based on the
+    * branch direction.
+    *
+    * Only works squashing of histories with when misprediction.
+    *
+    * @param tid The thread ID to select the histories
+    * to update.
+    * @param branch_pc The unshifted branch PC.
+    * @param taken (Predicted) branch direction.
+    * @param b Wrapping pointer to BranchInfo (to allow
+    * storing derived class prediction information in the
+    * base class).
+    */
     virtual void updateHistories(
         ThreadID tid, Addr branch_pc, bool taken, BranchInfo* b,
         bool speculative,

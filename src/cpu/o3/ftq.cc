@@ -12,8 +12,6 @@ namespace gem5
 namespace o3
 {
 
-
-/** Fetch Target Methods -------------------------------- */
 FetchTarget::FetchTarget(const PCStateBase &start_pc, InstSeqNum seq_num)
     : ftSeqNum(seq_num),
       end_with_branch(false), taken(false),
@@ -22,9 +20,8 @@ FetchTarget::FetchTarget(const PCStateBase &start_pc, InstSeqNum seq_num)
     set(startPC , start_pc);
 }
 
-
 void
-FetchTarget::finalize(const PCStateBase &exit_pc, InstSeqNum sn,
+FetchTarget::sealTarget(const PCStateBase &exit_pc, InstSeqNum sn,
                       bool _is_branch, bool pred_taken,
                       const PCStateBase &pred_pc)
 {
@@ -35,34 +32,20 @@ FetchTarget::finalize(const PCStateBase &exit_pc, InstSeqNum sn,
 }
 
 
-/** Fetch Target Qeue Methods ----------------------------- */
-
 FetchTargetQueue::FetchTargetQueue(CPU *belonged_cpu, const BaseO3CPUParams &params)
     : cpu(belonged_cpu),
-      numThreads(params.numThreads),
+      maxThreadNum(params.numThreads),
       numEntries(params.numFTQEntries),
       statsFTQ(belonged_cpu, this)
 {
     resetState();
 }
 
-
-void
-FetchTargetQueue::resetState()
-{
-    for (ThreadID tid = 0; tid  < numThreads; tid++) {
-        ftq[tid].clear();
-        ftqStatus[tid] = Valid;
-    }
-}
-
-
 std::string
 FetchTargetQueue::name() const
 {
     return cpu->name() + ".ftq";
 }
-
 
 void
 FetchTargetQueue::regProbePoints()
@@ -71,6 +54,15 @@ FetchTargetQueue::regProbePoints()
                                                         "FTQInsert");
     ppFTQRemove = new ProbePointArg<FetchTargetPtr>(cpu->getProbeManager(),
                                                         "FTQRemove");
+}
+
+void
+FetchTargetQueue::resetState()
+{
+    for (ThreadID tid = 0; tid  < maxThreadNum; tid++) {
+        ftq[tid].clear();
+        ftqStatus[tid] = Valid;
+    }
 }
 
 unsigned
@@ -92,20 +84,10 @@ FetchTargetQueue::isFull(ThreadID tid)
 }
 
 bool
-FetchTargetQueue::isEmpty() const
-{
-    for (ThreadID tid = numThreads; tid < MaxThreads; tid++) {
-        if (!ftq[tid].empty()) return false;
-    }
-    return true;
-}
-
-bool
 FetchTargetQueue::isEmpty(ThreadID tid) const
 {
     return ftq[tid].empty();
 }
-
 
 void
 FetchTargetQueue::invalidate(ThreadID tid)
@@ -121,38 +103,6 @@ FetchTargetQueue::isValid(ThreadID tid)
     return ftqStatus[tid] != Invalid;
 }
 
-
-void
-FetchTargetQueue::lock(ThreadID tid)
-{
-    ftqStatus[tid] = Locked;
-}
-
-bool
-FetchTargetQueue::isLocked(ThreadID tid)
-{
-    return ftqStatus[tid] == Locked;
-}
-
-
-void
-FetchTargetQueue::forAllForward(ThreadID tid, std::function<void(FetchTargetPtr&)> f)
-{
-    for (auto it = ftq[tid].begin(); it != ftq[tid].end(); it++) {
-        f(*it);
-    }
-}
-
-void
-FetchTargetQueue::forAllBackward(ThreadID tid, std::function<void(FetchTargetPtr&)> f)
-{
-    for (auto it = ftq[tid].rbegin(); it != ftq[tid].rend(); it++) {
-        f(*it);
-    }
-}
-
-
-
 void
 FetchTargetQueue::insert(ThreadID tid, FetchTargetPtr fetchTarget)
 {
@@ -165,6 +115,56 @@ FetchTargetQueue::insert(ThreadID tid, FetchTargetPtr fetchTarget)
                     tid, ftq[tid].size());
 }
 
+bool
+FetchTargetQueue::isHeadReady(ThreadID tid)
+{
+    return (ftqStatus[tid] != Invalid) && (ftq[tid].size() > 0);
+}
+
+FetchTargetPtr
+FetchTargetQueue::readHead(ThreadID tid)
+{
+    if (ftqStatus[tid] == Invalid) return nullptr;
+    if (ftq[tid].empty()) return nullptr;
+
+    return ftq[tid].front();
+}
+
+bool
+FetchTargetQueue::updateHead(ThreadID tid)
+{
+    if (ftq[tid].front()->bpu_history != nullptr) {
+        DPRINTF(FTQ, "Pop FT:[fn%llu] failed. Still contains BP history.\n",
+                    ftq[tid].front()->getFetchSeqNum());
+        ftqStatus[tid] = Invalid;
+        return false;
+    }
+
+    bool ret_val = true;
+
+    // Once the head of the FTQ gets updated and
+    // the FTQ got blocked by a complex instruction resteere
+    // we unblock by squashing
+    if (ftqStatus[tid] == Locked) {
+        DPRINTF(FTQ, "Pop FT:[fn%llu] unblocks FTQ. Require squash.\n",
+                    ftq[tid].front()->getFetchSeqNum());
+        ftqStatus[tid] = Invalid;
+        ret_val = false;
+    }
+
+    ppFTQRemove->notify(ftq[tid].front());
+    ftq[tid].pop_front();
+    statsFTQ.removals++;
+    return ret_val;
+}
+
+void
+FetchTargetQueue::forAllBackward(ThreadID tid, std::function<void(FetchTargetPtr&)> f)
+{
+    for (auto it = ftq[tid].rbegin(); it != ftq[tid].rend(); it++) {
+        f(*it);
+    }
+}
 
 void
 FetchTargetQueue::squash(ThreadID tid)
@@ -186,54 +186,17 @@ FetchTargetQueue::squashSanityCheck(ThreadID tid)
     }
 }
 
-
-bool
-FetchTargetQueue::isHeadReady(ThreadID tid)
+void
+FetchTargetQueue::lock(ThreadID tid)
 {
-    return (ftqStatus[tid] != Invalid) && (ftq[tid].size() > 0);
+    ftqStatus[tid] = Locked;
 }
 
-
-FetchTargetPtr
-FetchTargetQueue::readHead(ThreadID tid)
+    bool
+    FetchTargetQueue::isLocked(ThreadID tid)
 {
-    if (ftqStatus[tid] == Invalid) return nullptr;
-    if (ftq[tid].empty()) return nullptr;
-
-    return ftq[tid].front();
+    return ftqStatus[tid] == Locked;
 }
-
-
-bool
-FetchTargetQueue::updateHead(ThreadID tid)
-{
-    if (ftq[tid].front()->bpu_history != nullptr) {
-        DPRINTF(FTQ, "Pop FT:[fn%llu] failed. Still contains BP history.\n",
-                    ftq[tid].front()->ftNum());
-        ftqStatus[tid] = Invalid;
-        return false;
-    }
-
-    bool ret_val = true;
-
-    // TODO make this more efficient
-    // Once the head of the FTQ gets updated and
-    // the FTQ got blocked by a complex instruction resteere
-    // we unblock by squashing
-    if (ftqStatus[tid] == Locked) {
-        DPRINTF(FTQ, "Pop FT:[fn%llu] unblocks FTQ. Require squash.\n",
-                    ftq[tid].front()->ftNum());
-        ftqStatus[tid] = Invalid;
-        ret_val = false;
-    }
-
-    ppFTQRemove->notify(ftq[tid].front());
-    ftq[tid].pop_front();
-    statsFTQ.removals++;
-    return ret_val;
-}
-
-
 
 FetchTargetQueue::FTQStats::FTQStats(o3::CPU *cpu, FetchTargetQueue *ftq)
   : statistics::Group(cpu, "ftq"),

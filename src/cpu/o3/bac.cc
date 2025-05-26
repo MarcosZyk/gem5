@@ -511,7 +511,7 @@ BAC::newFetchTarget(ThreadID tid, const PCStateBase &start_pc)
     auto ft = std::make_shared<FetchTarget>(start_pc,
                                             cpu->getAndIncrementFTSeq());
 
-    DPRINTF(BAC, "Create new fetch target ftn:%llu\n", ft->ftNum());
+    DPRINTF(BAC, "Create new fetch target ftn:%llu\n", ft->getFetchSeqNum());
     stats.fetchTargets++;
     return ft;
 }
@@ -523,7 +523,7 @@ BAC::predict(ThreadID tid, const StaticInstPtr &inst,
 
     /** Perform the prediction. */
     BPredUnit::PredictorHistory* bpu_history = nullptr;
-    bool taken  = bpu->predict(inst, ft->ftNum(), pc, tid, bpu_history);
+    bool taken  = bpu->predict(inst, ft->getFetchSeqNum(), pc, tid, bpu_history);
 
     /** Push the prediction history to the fetch target.
      * The postFetch() function will move the history from the FTQ to the
@@ -531,7 +531,7 @@ BAC::predict(ThreadID tid, const StaticInstPtr &inst,
     */
     ft->bpu_history = static_cast<void*>(bpu_history);
 
-    DPRINTF(Branch,"[tid:%i, ftn:%llu] History added.\n", tid, ft->ftNum());
+    DPRINTF(Branch,"[tid:%i, ftn:%llu] History added.\n", tid, ft->getFetchSeqNum());
     return taken;
 }
 
@@ -621,7 +621,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
 
         DPRINTF(BAC, "[tid:%i, ftn:%llu] Branch found at PC %#x "
                 "taken?:%i, target:%#x\n",
-                tid, curFT->ftNum(), cur_pc.instAddr(),
+                tid, curFT->getFetchSeqNum(), cur_pc.instAddr(),
                 predict_taken, next_pc->instAddr());
 
         stats.branches++;
@@ -640,7 +640,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
     // Complete the fetch target if
     // - a branch is found
     // - or the maximum fetch bandwidth is reached.
-    curFT->finalize(cur_pc, curFT->ftNum(), branch_found,
+    curFT->sealTarget(cur_pc, curFT->getFetchSeqNum(), branch_found,
                         predict_taken, *next_pc);
 
     ftq->insert(tid, curFT);
@@ -679,7 +679,7 @@ BAC::generateFetchTargets(ThreadID tid, bool &status_change)
 
     DPRINTF(BAC, "[tid:%i] [fn:%llu] %i addresses searched. "
             "Branch found:%i. Continue with PC:%s in next cycle\n",
-            tid, curFT->ftNum(), (search_addr - start_addr),
+            tid, curFT->getFetchSeqNum(), (search_addr - start_addr),
             branch_found, *next_pc);
 
     stats.ftSizeDist.sample(search_addr - start_addr);
@@ -704,13 +704,13 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     // The PC must be in the range of the fetch target.
     assert(ft->inRange(pc.instAddr()));
 
-    assert(ft->ftNum() == ftq->readHead(tid)->ftNum());
+    assert(ft->getFetchSeqNum() == ftq->readHead(tid)->getFetchSeqNum());
     BranchType brType = branch_prediction::getBranchType(inst);
     stats.preDecUpdate[brType]++;
 
     DPRINTF(BAC, "%s(tid:%i, sn:%lu, inst: %s, PC:%#x, FT[%llu, taken:%i, "
             "end:#%#x)\n", __func__, tid, seqNum,
-            branch_prediction::toString(brType), pc.instAddr(), ft->ftNum(),
+            branch_prediction::toString(brType), pc.instAddr(), ft->getFetchSeqNum(),
             ft->isTaken(), ft->endAddress());
 
     bool target_set = false;
@@ -728,7 +728,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
         ft->bpu_history = nullptr;
 
         DPRINTF(BAC, "Pop history from FT:%llu => sn:%llu, PC:%#x, taken:%i, "
-                "target:%#x\n", ft->ftNum(), seqNum, hist->pc,
+                "target:%#x\n", ft->getFetchSeqNum(), seqNum, hist->pc,
                 hist->predTaken, hist->target->instAddr());
 
     }
@@ -782,7 +782,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
         ftq->lock(tid);
 
         // Finally we can make a fresh prediction.
-        bpu->predict(inst, ft->ftNum(), pc, tid, hist);
+        bpu->predict(inst, ft->getFetchSeqNum(), pc, tid, hist);
         target_set = true;
     }
 
@@ -896,7 +896,7 @@ BAC::updatePC(const DynInstPtr &inst,
         || !ftq->isValid(tid)) {
 
         DPRINTF(BAC, "[tid:%i][ft:%llu] Reached end of Fetch Target\n",
-                        tid, ft->ftNum());
+                        tid, ft->getFetchSeqNum());
 
         ft = nullptr;
     }

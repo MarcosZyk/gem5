@@ -55,17 +55,13 @@ class FetchTarget
     bool taken;
 
   public:
-    /** Ancore point to attach a branch predictor history.
-     * Will carry information while FT is waiting in th FTQ. */
+    /** branch predictor history information while FT is waiting in th FTQ. */
     void* bpu_history;
 
-    /* Start address of the basic block */
     Addr startAddress() { return startPC->instAddr(); }
 
-    /* End address of the basic block */
     Addr endAddress() { return (endPC) ? endPC->instAddr() : MaxAddr; }
 
-    /* Fetch Target size (number of bytes) */
     unsigned size() { return endAddress() - startAddress(); }
 
     bool inRange(Addr addr) {
@@ -85,15 +81,14 @@ class FetchTarget
         return addr > endAddress();
     }
 
-    /** Returns the fetch target number. */
-    FTSeqNum ftNum() { return ftSeqNum; }
+    FTSeqNum getFetchSeqNum() { return ftSeqNum; }
 
     const PCStateBase &getPredictedTarget() { return *predPC; }
 
     bool isTaken() { return taken; }
 
-    /** Complete a fetch target with the exit instruction */
-    void finalize(const PCStateBase &exit_pc, InstSeqNum sn, bool _is_branch,
+    /** Complete a fetch target with the end instruction */
+    void sealTarget(const PCStateBase &exit_pc, InstSeqNum sn, bool _is_branch,
                   bool pred_taken, const PCStateBase &pred_pc);
 };
 
@@ -112,7 +107,6 @@ class FetchTargetQueue
 
   private:
 
-    /** Possible FTQ statuses. */
     enum Status
     {
         Invalid,
@@ -124,13 +118,11 @@ class FetchTargetQueue
     /** Per-thread FTQ status. */
     Status ftqStatus[MaxThreads];
 
-    /** Pointer to the CPU. */
     CPU *cpu;
 
-    /** Max number of threads */
-    const unsigned numThreads;
+    const unsigned maxThreadNum;
 
-    /** Number of fetch targets in the FTQ. (per thread) */
+    /** (per thread) Number of fetch targets in the FTQ. */
     const unsigned numEntries;
 
     /** Probe points to attach the FDP perfetcher. */
@@ -151,19 +143,12 @@ public:
     void resetState();
 
 
-    /** Returns the number of free entries in a specific FTQ paritition. */
     unsigned numFreeEntries(ThreadID tid);
 
-    /** Returns the size of the ftq for a specific partition*/
     unsigned size(ThreadID tid);
 
-    /** Returns if a specific thread's queue is full. */
     bool isFull(ThreadID tid);
 
-    /** Returns if the FTQ is empty. */
-    bool isEmpty() const;
-
-    /** Returns if a specific thread's queue is empty. */
     bool isEmpty(ThreadID tid) const;
 
 
@@ -171,9 +156,28 @@ public:
      * Requires squash to recover. */
     void invalidate(ThreadID tid);
 
-    /** Returns if the FTQ is in a val;id state and its save to consmume
-     * fetch targets. */
+    /** Returns if the FTQ is in a valid state*/
     bool isValid(ThreadID tid);
+
+    void insert(ThreadID tid, FetchTargetPtr fetchTarget);
+
+    bool isHeadReady(ThreadID tid);
+
+    FetchTargetPtr readHead(ThreadID tid);
+
+    bool updateHead(ThreadID tid);
+
+    /** Iterates backward over all fetch targets in the FTQ from tail/back to
+     * head/front and applies a given function.
+     * Used for PFC
+     */
+    void forAllBackward(ThreadID tid, std::function<void(FetchTargetPtr&)> f);
+
+    /** Squashes all fetch targets in the FTQ for a specific thread. */
+    void squash(ThreadID tid);
+
+    /***/
+    void squashSanityCheck(ThreadID tid);
 
     /** Locks the fetch target queue for a given thread. Locking is different
      * from invalidating in that the head/front fetch targets are still
@@ -183,44 +187,6 @@ public:
 
     /** Check if the FTQ is locked. */
     bool isLocked(ThreadID tid);
-
-
-    /** Interates forward over all fetch targets in the FTQ from head/front to
-     * tail/back and applies a given function. */
-    void forAllForward(ThreadID tid, std::function<void(FetchTargetPtr&)> f);
-
-    /** Interates backward over all fetch targets in the FTQ from tail/back to
-     * head/front and applies a given function. */
-    void forAllBackward(ThreadID tid, std::function<void(FetchTargetPtr&)> f);
-
-
-    /** Pushes a fetch target into the back/tail of the FTQ.
-     *  @param fetchTarget Pointer to the fetch target to be inserted.
-     */
-    void insert(ThreadID tid, FetchTargetPtr fetchTarget);
-
-
-    /** Squashes all fetch targets in the FTQ for a specific thread. */
-    void squash(ThreadID tid);
-
-    /***/
-    void squashSanityCheck(ThreadID tid);
-
-    /** Is the head entry ready for the fetch stage to be consumed. */
-    bool isHeadReady(ThreadID tid);
-
-    /** Returns a pointer to the head fetch target of a specific thread within
-     *  the FTQ.
-     *  @return Pointer to the FetchTarget that is at the head of the FTQ.
-     */
-    FetchTargetPtr readHead(ThreadID tid);
-
-    /** Updates the head fetch target once its fully processed
-     * In case there is still a branch history attached to the
-     * head fetch target the FTQ goes into invalid state.
-     * @return Wheather or not the update was successful.
-    */
-    bool updateHead(ThreadID tid);
 
 
   private:

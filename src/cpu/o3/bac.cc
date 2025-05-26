@@ -742,7 +742,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     // The fetch stage will call this function after pre-decoding an
     // instruction finds a branch instruction. Check if this is the exit
     // branch.
-    if (ft->isExitBranch(pc.instAddr())
+    if (ft->isEndBranch(pc.instAddr())
         && ft->bpu_history != nullptr) {
 
         // Pop the history from the FTQ to move it later to the
@@ -854,7 +854,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     // branches we need to advance the PC.
     if (!target_set) {
         if (hist->predTaken) {
-            set(pc, ft->getPredTarg());
+            set(pc, ft->getPredictedTarget());
         } else {
             inst->advancePC(pc);
         }

@@ -292,8 +292,8 @@ TAGE_SC_L_TAGE::updateHistories(
 }
 
 void
-TAGE_SC_L_TAGE::squash(ThreadID tid, bool taken, Addr target,
-                       const StaticInstPtr &inst, TAGEBase::BranchInfo *bi)
+TAGE_SC_L_TAGE::squash(ThreadID tid, bool taken, TAGEBase::BranchInfo *bi,
+                       Addr target)
 {
     fatal("Speculation is not implemented");
 }
@@ -430,7 +430,7 @@ TAGE_SC_L::update(ThreadID tid, Addr pc, bool taken, void *&bp_history,
         if (tage->isSpeculativeUpdateEnabled()) {
             // This restores the global history, then update it
             // and recomputes the folded histories.
-            tage->squash(tid, taken, target, inst, tage_bi);
+            tage->squash(tid, taken, tage_bi, target);
             if (bi->tageBranchInfo->condBranch) {
                 loopPredictor->squashLoop(bi->lpBranchInfo);
             }

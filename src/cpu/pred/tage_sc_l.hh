@@ -133,8 +133,8 @@ class TAGE_SC_L_TAGE : public TAGEBase
 
     virtual uint16_t gtag(ThreadID tid, Addr pc, int bank) const override = 0;
 
-    void squash(ThreadID tid, bool taken, Addr target,
-                const StaticInstPtr &inst, TAGEBase::BranchInfo *bi) override;
+    void squash(ThreadID tid, bool taken, TAGEBase::BranchInfo *bi,
+                Addr target) override;
 
     void updatePathAndGlobalHistory(
         ThreadID tid, int brtype, bool taken,

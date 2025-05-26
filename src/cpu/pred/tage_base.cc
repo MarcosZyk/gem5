@@ -721,8 +721,8 @@ TAGEBase::restoreHistState(ThreadID tid, BranchInfo* bi)
 }
 
 void
-TAGEBase::squash(ThreadID tid, bool taken, Addr target,
-                 const StaticInstPtr &inst, TAGEBase::BranchInfo *bi)
+TAGEBase::squash(ThreadID tid, bool taken, TAGEBase::BranchInfo *bi,
+                 Addr target)
 {
     checkAndUpdateHistories(tid, bi->branchPC, taken, bi, true, target);
 }

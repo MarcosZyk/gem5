@@ -347,15 +347,14 @@ class TAGEBase : public SimObject
      * This version of squash() is called once on a branch misprediction.
      * @param tid The Thread ID to select the histories to rollback.
      * @param taken The correct branch outcome.
-     * @param target The correct branch target
-     * @param inst The branch instruction.
      * @param bi Wrapping pointer to BranchInfo (to allow
      * storing derived class prediction information in the
      * base class).
+     * @param target The correct branch target
      * @post bi points to valid memory.
      */
-    virtual void squash(ThreadID tid, bool taken, Addr target,
-                        const StaticInstPtr &inst, BranchInfo *bi);
+    virtual void squash(
+        ThreadID tid, bool taken, BranchInfo *bi, Addr target);
 
     /**
      * Update TAGE for conditional branches.

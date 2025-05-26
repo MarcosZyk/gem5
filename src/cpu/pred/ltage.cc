@@ -117,7 +117,7 @@ LTAGE::update(ThreadID tid, Addr pc, bool taken, void * &bp_history,
         if (tage->isSpeculativeUpdateEnabled()) {
             // This restores the global history, then update it
             // and recomputes the folded histories.
-            tage->squash(tid, taken, target, inst, bi->tageBranchInfo);
+            tage->squash(tid, taken, bi->tageBranchInfo, target);
 
             if (bi->tageBranchInfo->condBranch) {
                 loopPredictor->squashLoop(bi->lpBranchInfo);

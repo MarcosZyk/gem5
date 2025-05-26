@@ -79,7 +79,7 @@ TAGE::update(ThreadID tid, Addr pc, bool taken, void * &bp_history,
     if (squashed) {
         // This restores the global history, then update it
         // and recomputes the folded histories.
-        tage->squash(tid, taken, target, inst, tage_bi);
+        tage->squash(tid, taken, tage_bi, target);
         return;
     }
 

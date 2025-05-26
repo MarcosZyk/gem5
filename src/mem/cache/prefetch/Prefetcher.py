@@ -727,3 +727,13 @@ class PIFPrefetcher(QueuedPrefetcher):
         self.addEvent(
             HWPProbeEventRetiredInsts(self, simObj, "RetiredInstsPC")
         )
+
+
+class FetchDirectedInstructionPrefetcher(BasePrefetcher):
+    type = "FetchDirectedInstructionPrefetcher"
+    cxx_class = "gem5::prefetch::FetchDirectedInstructionPrefetcher"
+    cxx_header = "mem/cache/prefetch/fdip.hh"
+
+    cpu = Param.BaseCPU(Parent.any, "The CPU to train the predictor")
+
+    latency = Param.Cycles(1, "Latency for generated prefetches")

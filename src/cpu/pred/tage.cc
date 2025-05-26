@@ -102,6 +102,7 @@ void
 TAGE::squash(ThreadID tid, void * &bp_history)
 {
     TageBranchInfo *bi = static_cast<TageBranchInfo*>(bp_history);
+    tage->restoreHistState(tid, bi->tageBranchInfo);
     DPRINTF(Tage, "Deleting branch info: %lx\n", bi->tageBranchInfo->branchPC);
     delete bi;
     bp_history = nullptr;
@@ -110,7 +111,7 @@ TAGE::squash(ThreadID tid, void * &bp_history)
 bool
 TAGE::predict(ThreadID tid, Addr pc, bool cond_branch, void* &b)
 {
-    TageBranchInfo *bi = new TageBranchInfo(*tage);//nHistoryTables+1);
+    TageBranchInfo *bi = new TageBranchInfo(*tage, pc, cond_branch);
     b = (void*)(bi);
     return tage->tagePredict(tid, pc, cond_branch, bi->tageBranchInfo);
 }
@@ -129,15 +130,24 @@ void
 TAGE::updateHistories(ThreadID tid, Addr pc, bool uncond,
                          bool taken, Addr target, void * &bp_history)
 {
-    assert(uncond || bp_history);
-    if (uncond) {
-        DPRINTF(Tage, "UnConditionalBranch: %lx\n", pc);
+    if (bp_history == nullptr) {
+
+        // We should only see unconditional branches
+        assert(uncond);
+
         predict(tid, pc, false, bp_history);
     }
 
     // Update the global history for all branches
     TageBranchInfo *bi = static_cast<TageBranchInfo*>(bp_history);
-    tage->updateHistories(tid, pc, taken, bi->tageBranchInfo, true);
+    tage->updateHistories(tid, pc, taken, bi->tageBranchInfo, true, nullStaticInstPtr, target);
+}
+
+void
+TAGE::branchPlaceholder(ThreadID tid, Addr pc, bool uncond, void * &bpHistory)
+{
+    TageBranchInfo *bi = new TageBranchInfo(*tage, pc, !uncond);
+    bpHistory = (void*)(bi);
 }
 
 } // namespace branch_prediction

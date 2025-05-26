@@ -80,6 +80,8 @@ CPU::CPU(const BaseO3CPUParams &params)
       instcount(0),
 #endif
       removeInstsThisCycle(false),
+      ftg(this, params),
+      ftq(this, params),
       fetch(this, params),
       decode(this, params),
       rename(this, params),
@@ -112,6 +114,7 @@ CPU::CPU(const BaseO3CPUParams &params)
                   params.activity),
 
       globalSeqNum(1),
+      globalFTSeqNum(1),
       system(params.system),
       lastRunningCycle(curCycle()),
       cpuStats(this)
@@ -148,6 +151,7 @@ CPU::CPU(const BaseO3CPUParams &params)
     // to the upper level CPU, and not this CPU.
 
     // Set up Pointers to the activeThreads list for each stage
+    ftg.setActiveThreads(&activeThreads);
     fetch.setActiveThreads(&activeThreads);
     decode.setActiveThreads(&activeThreads);
     rename.setActiveThreads(&activeThreads);
@@ -155,6 +159,7 @@ CPU::CPU(const BaseO3CPUParams &params)
     commit.setActiveThreads(&activeThreads);
 
     // Give each of the stages the time buffer they will use.
+    ftg.setTimeBuffer(&timeBuffer);
     fetch.setTimeBuffer(&timeBuffer);
     decode.setTimeBuffer(&timeBuffer);
     rename.setTimeBuffer(&timeBuffer);
@@ -162,6 +167,8 @@ CPU::CPU(const BaseO3CPUParams &params)
     commit.setTimeBuffer(&timeBuffer);
 
     // Also setup each of the stages' queues.
+    ftg.setFetchTargetQueue(&ftq);
+    fetch.setFTGAndFTQPtr(&ftg, &ftq);
     fetch.setFetchQueue(&fetchQueue);
     decode.setFetchQueue(&fetchQueue);
     commit.setFetchQueue(&fetchQueue);
@@ -330,6 +337,8 @@ CPU::regProbePoints()
         std::pair<DynInstPtr, PacketPtr>>(
                 getProbeManager(), "DataAccessComplete");
 
+    ftq.regProbePoints();
+    ftg.regProbePoints();
     fetch.regProbePoints();
     rename.regProbePoints();
     iew.regProbePoints();
@@ -372,6 +381,8 @@ CPU::tick()
 //    activity = false;
 
     //Tick each of the stages
+    ftg.tick();
+
     fetch.tick();
 
     decode.tick();
@@ -440,6 +451,7 @@ CPU::startup()
 {
     BaseCPU::startup();
 
+    ftg.startupStage();
     fetch.startupStage();
     decode.startupStage();
     iew.startupStage();
@@ -483,6 +495,7 @@ CPU::deactivateThread(ThreadID tid)
         activeThreads.erase(thread_it);
     }
 
+    ftg.deactivateThread(tid);
     fetch.deactivateThread(tid);
     commit.deactivateThread(tid);
 }
@@ -646,6 +659,7 @@ CPU::removeThread(ThreadID tid)
     // clear all thread-specific states in each stage of the pipeline
     // since this thread is going to be completely removed from the CPU
     commit.clearStates(tid);
+    ftg.clearStates(tid);
     fetch.clearStates(tid);
     decode.clearStates(tid);
     rename.clearStates(tid);
@@ -666,6 +680,7 @@ CPU::removeThread(ThreadID tid)
     assert(iew.instQueue.getCount(tid) == 0);
     assert(iew.ldstQueue.getCount(tid) == 0);
     assert(commit.rob->isEmpty(tid));
+    assert(ftq.isEmpty(tid));
 
     // Reset ROB/IQ/LSQ Entries
 
@@ -804,6 +819,7 @@ void
 CPU::drainSanityCheck() const
 {
     assert(isCpuDrained());
+    ftg.drainSanityCheck();
     fetch.drainSanityCheck();
     decode.drainSanityCheck();
     rename.drainSanityCheck();
@@ -818,6 +834,11 @@ CPU::isCpuDrained() const
 
     if (!instList.empty() || !removeList.empty()) {
         DPRINTF(Drain, "Main CPU structures not drained.\n");
+        drained = false;
+    }
+
+    if (!ftg.isDrained()) {
+        DPRINTF(Drain, "FTG not drained.\n");
         drained = false;
     }
 
@@ -849,7 +870,12 @@ CPU::isCpuDrained() const
     return drained;
 }
 
-void CPU::commitDrained(ThreadID tid) { fetch.drainStall(tid); }
+void
+CPU::commitDrained(ThreadID tid)
+{
+    ftg.drainStall(tid);
+    fetch.drainStall(tid);
+}
 
 void
 CPU::drainResume()
@@ -860,6 +886,7 @@ CPU::drainResume()
     DPRINTF(Drain, "Resuming...\n");
     verifyMemoryMode();
 
+    ftg.drainResume();
     fetch.drainResume();
     commit.drainResume();
 
@@ -899,6 +926,7 @@ CPU::takeOverFrom(BaseCPU *oldCPU)
 {
     BaseCPU::takeOverFrom(oldCPU);
 
+    ftg.takeOverFrom();
     fetch.takeOverFrom();
     decode.takeOverFrom();
     rename.takeOverFrom();

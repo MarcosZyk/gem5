@@ -270,7 +270,7 @@ TAGE_SC_L_TAGE::updatePathAndGlobalHistory(
 void
 TAGE_SC_L_TAGE::updateHistories(
     ThreadID tid, Addr branch_pc, bool taken, TAGEBase::BranchInfo* b,
-    bool speculative, const StaticInstPtr &inst,Addr target)
+    bool speculative, const StaticInstPtr &inst, Addr target)
 {
     if (speculative != speculativeHistUpdate) {
         return;

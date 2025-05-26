@@ -88,11 +88,8 @@ class FetchTarget
     /** Returns the fetch target number. */
     FTSeqNum ftNum() { return ftSeqNum; }
 
-    /** Read the predicted target of the exit branch. */
-    const PCStateBase &readPredTarg() { return *predPC; }
+    const PCStateBase &getPredictedTarget() { return *predPC; }
 
-
-    /** Check if the exit branch was predicted taken. */
     bool isTaken() { return taken; }
 
     /** Complete a fetch target with the exit instruction */

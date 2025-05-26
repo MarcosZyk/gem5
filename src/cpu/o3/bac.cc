@@ -854,7 +854,7 @@ BAC::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
     // branches we need to advance the PC.
     if (!target_set) {
         if (hist->predTaken) {
-            set(pc, ft->readPredTarg());
+            set(pc, ft->getPredTarg());
         } else {
             inst->advancePC(pc);
         }

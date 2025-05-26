@@ -8,7 +8,7 @@ import os
 import argparse
 
 from m5.objects import (
-    LTAGE,
+    TAGE,
     TaggedPrefetcher,
     FetchDirectedInstructionPrefetcher,
     L2XBar,
@@ -133,7 +133,7 @@ def get_simulator(args):
     cpu.fetchTargetWidth = 32
 
     # Set branch predictor
-    cpu.branchPred = LTAGE()
+    cpu.branchPred = TAGE()
 
     # Create the icache and the prefetcher
     icache = L1ICache(size="32kB")

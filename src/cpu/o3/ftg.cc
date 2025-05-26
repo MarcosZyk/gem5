@@ -527,6 +527,29 @@ FTG::generateFetchTargets(ThreadID tid, bool &status_change)
         status_change = true;
     }
 
+    // x86 has some complex instruction like string copy where the branch
+    // is not the last instruction or have several branches within the same
+    // instruction. Those branches jump always! to itself. This messes up
+    // the searching approach and will result in an infinite loop until the
+    // branch is squashed.
+    // We handle this by assuming only one branch per instruction and go
+    // straight to the next address/instruction/fetch target. In case the
+    // decoder finds more branches in this instruction we squash the FTQ.
+    // (see postFetch())
+    // This could be circumvented by using not only the PC but also the
+    // microPC to make predictions. However, since such instructions are
+    // rare this is not implemented.
+    if (staticInst
+        && staticInst->isMicroop() && !staticInst->isLastMicroop()) {
+        // The target is always to itself no matter if its taken or not.
+        // assert(next_pc->instAddr() == search_addr);
+        DPRINTF(FTG, "Branch detected which is not the last uOp %s. "
+                    "Continue with next address.\n", cur_pc);
+
+        next_pc->set(cur_pc.instAddr() + staticInst->size());
+    }
+
+
     DPRINTF(FTG, "[tid:%i] [fn:%llu] %i addresses searched. "
             "Branch found:%i. Continue with PC:%s in next cycle\n",
             tid, curFT->getFetchSeqNum(), (search_addr - start_addr),
@@ -602,6 +625,36 @@ FTG::updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
         // The complex instruction needs to be completed before unlocking.
         // Unlocking is performed by resetting the FTG stage.
         ftq->lock(tid);
+    }
+
+    // 2. For complex instruction with more than one branches the history
+    // the history is already used. We only predict the first branch in a
+    // complex instruction (see createFetchTarget() function).
+    // In that case we squash the FTQ and lock it until the full instruction
+    // Afterwards the fetch stage will reset the FTG stage with a
+    // ftgResteer() call. Hence, operation for complex instructions is:
+    // Detecting multi branch inst. -> lock FTQ util inst. done. -> reset FTG.
+    //
+    // Note we might end up here multiple times until the full instruction
+    // is completed.
+    if (inst->isMicroop() && !inst->isLastMicroop() && (hist == nullptr)) {
+
+        DPRINTF(Branch, "No history for complex instruction found. \n");
+        statsFTG.multiBranchInst++;
+
+        // First squash all histories that are already in the FTQ
+        // to have a clean state.
+        squashBpuHistories(tid);
+
+        // Then lock the FTQ. The complex instruction needs to
+        // be completed before unlocking. Unlocking is performed by
+        // resetting the FTG stage with a ftgResteer() call from the
+        // fetch stage.
+        ftq->lock(tid);
+
+        // Finally we can make a fresh prediction.
+        bpu->predict(inst, ft->getFetchSeqNum(), pc, tid, hist);
+        target_set = true;
     }
 
     // Check if we have a valid history. If not we need to create one.
@@ -702,7 +755,14 @@ FTG::updatePC(const DynInstPtr &inst,
     }
 
 
-    if (ft->isEndInst(inst->pcState().instAddr()) || !ftq->isValid(tid)) {
+    // For the decoupled front-end we need to check if this instruction
+    // is the exit instruction of the fetch target. It does not need
+    // to be a branch.
+    // If the instruction is micro coded check if its the last uOp.
+    // Also remove the fetch target if the FTQ became invalid.
+    if ((ft->isEndInst(inst->pcState().instAddr())
+            && (!inst->isMicroop() || inst->isLastMicroop()))
+        || !ftq->isValid(tid)) {
 
         DPRINTF(FTG, "[tid:%i][ft:%llu] Reached end of Fetch Target\n",
                         tid, ft->getFetchSeqNum());

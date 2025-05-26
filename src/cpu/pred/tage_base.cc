@@ -629,8 +629,8 @@ TAGEBase::handleTAGEUpdate(Addr branch_pc, bool taken, BranchInfo* bi)
 
 void
 TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool taken,
-                              BranchInfo* bi, bool speculative,
-                              const StaticInstPtr &inst, Addr target)
+                          BranchInfo* bi, bool speculative,
+                          const StaticInstPtr &inst, Addr target)
 {
     checkAndUpdateHistories(tid, branch_pc, taken, bi, speculative, target);
 }
@@ -715,6 +715,13 @@ TAGEBase::checkAndUpdateHistories(ThreadID tid, Addr branch_pc, bool taken,
 }
 
 void
+TAGEBase::squash(ThreadID tid, bool taken, TAGEBase::BranchInfo *bi,
+                 Addr target)
+{
+    checkAndUpdateHistories(tid, bi->branchPC, taken, bi, true, target);
+}
+
+void
 TAGEBase::recordHistState(ThreadID tid, BranchInfo* bi)
 {
     ThreadHistory& tHist = threadHistory[tid];
@@ -760,13 +767,6 @@ TAGEBase::restoreHistState(ThreadID tid, BranchInfo* bi)
     }
     bi->nGhist = 0;
     bi->modified = false;
-}
-
-void
-TAGEBase::squash(ThreadID tid, bool taken, TAGEBase::BranchInfo *bi,
-                 Addr target)
-{
-    checkAndUpdateHistories(tid, bi->branchPC, taken, bi, true, target);
 }
 
 void

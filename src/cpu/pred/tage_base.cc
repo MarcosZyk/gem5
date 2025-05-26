@@ -586,7 +586,7 @@ TAGEBase::handleTAGEUpdate(Addr branch_pc, bool taken, BranchInfo* bi)
 }
 
 void
-TAGEBase::updatePathAndGlobalHistory(ThreadID tid, int brtype, bool taken,
+TAGEBase::updatePathAndGlobalHistory(ThreadID tid, bool taken,
                                 Addr branch_pc, Addr target, BranchInfo* bi)
 {
     ThreadHistory& tHist = threadHistory[tid];
@@ -661,8 +661,7 @@ TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool taken,
 
     // Do the actual history update. Might be different for different
     // TAGE implementations.
-    updatePathAndGlobalHistory(tid, branchTypeExtra(inst), taken,
-                               branch_pc, target, bi);
+    updatePathAndGlobalHistory(tid, taken, branch_pc, target, bi);
 
     DPRINTF(Tage, "Updating global histories with branch:%lx; taken?:%d, "
             "path Hist: %x; pointer:%d\n", branch_pc, taken,

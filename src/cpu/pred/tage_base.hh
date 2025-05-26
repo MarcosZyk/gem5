@@ -343,19 +343,12 @@ class TAGEBase : public SimObject
     /** Does the actual update of path and global history. Different TAGE
      * implementations may override this function to do extra work.
      * @param tid The thread ID to select the histories to update.
-     * @param brtype The branch type
      * @param taken Actual branch outcome.
      * @param branch_pc The unshifted branch PC.
      * @param target The branch target
      * @param bi Pointer to information on the prediction
      */
-    virtual void updatePathAndGlobalHistory(ThreadID tid, int brtype,
-                    bool taken, Addr branch_pc, Addr target, BranchInfo* bi);
-
-    /** This function acts as a hook for other TAGE implementations to
-     * adjust the branch type
-    */
-    virtual int branchTypeExtra(const StaticInstPtr & inst) { return 0; }
+    virtual void updatePathAndGlobalHistory(ThreadID tid, bool taken, Addr branch_pc, Addr target, BranchInfo* bi);
 
     /**
      * Restores speculatively updated path and direction histories.

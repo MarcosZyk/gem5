@@ -136,7 +136,7 @@ class TAGE_SC_L_TAGE : public TAGEBase
                 Addr target) override;
 
     void updatePathAndGlobalHistory(
-        ThreadID tid, int brtype, bool taken,
+        ThreadHistory & tHist, int brtype, bool taken,
         Addr branch_pc, Addr target);
 
     void adjustAlloc(bool & alloc, bool taken, bool pred_taken) override;

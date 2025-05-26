@@ -25,48 +25,22 @@ class FetchTarget;
 typedef std::shared_ptr<FetchTarget> FetchTargetPtr;
 
 
-/********************************************************************
- * BAC: Branch and Address Calculation
- *
- * The BAC stage handles branch prediction and next PC address
- * calculation and mainly consists of two parts:
- *
- * (1) The branch prediction part that manages the branch predictor.
- *     It checks the backward communication signals from the pipleline
- *     to update the branch predictor accordingly.
- *     This part can be decoupled from the fetch stage and used to
- *     feed the FTQ with fetch targets which will be consumed by the
- *     fetch stage.
- *     When decoupling is enabled this part is active and acts as
- *     a separate pipeline stage. Otherwise the stage remains idle and
- *     everything is in sync with the fetch stage. The branch prediction
- *     itself is then triggered from the PC calculation part.
- *
- * (2) The PC calculation part that is tightly coupled to the
- *     fetch stage. Fetch calls the updatePC() method after each
- *     predecoded instruction to advance the PC to the next instruction.
- *
- * Note that this organization means that the BAC stage has spans over
- * two pipeline stages and the second part is in the same stage as
- * the fetch stage which is not the nicest organization. However,
- * it allows to keep the fetch stage simple and most of the decoupling
- * in the BAC stage.
+/**
+ * Refer to fetch stage to implement this stage by extracting branch prediction and next PC address
+ * calculation from fetch stage.
 */
 class BAC
 {
   typedef branch_prediction::BranchType BranchType;
 
   public:
-    /** Overall decoupled BPU stage status. Used to determine if the CPU can
-     * deschedule itself due to a lack of activity.
-     */
+
     enum BACStatus
     {
         Active,
         Inactive
     };
 
-    /** Individual thread status. */
     enum ThreadStatus
     {
         Idle,
@@ -78,230 +52,12 @@ class BAC
     };
 
   private:
-    /** Decode status. */
+
     BACStatus _status;
 
     /** Per-thread status. */
     ThreadStatus bacStatus[MaxThreads];
 
-  public:
-    /** BAC constructor. */
-    BAC(CPU *_cpu, const BaseO3CPUParams &params);
-
-
-    // Interfaces to CPU ----------------------------------
-    // These functions are to manage the BAC stage
-    // and the interface with the remaining CPU.
-
-    /** Returns the name of the stage. */
-    std::string name() const;
-
-    /** Registers probes and listeners. */
-    void regProbePoints() {}
-
-    /** Sets the main backwards communication time buffer pointer. */
-    void setTimeBuffer(TimeBuffer<TimeStruct> *tb_ptr);
-
-    /** Sets pointer to list of active threads. */
-    void setActiveThreads(std::list<ThreadID> *at_ptr);
-
-    /** Initialize stage. */
-    void setFetchTargetQueue(FetchTargetQueue * _ptr);
-
-    /** Initialize stage. */
-    void startupStage();
-
-    /** Clear all thread-specific states*/
-    void clearStates(ThreadID tid);
-
-    /** Resume after a drain. */
-    void drainResume();
-
-    /** Perform sanity checks after a drain. */
-    void drainSanityCheck() const;
-
-    /** Has the stage drained? */
-    bool isDrained() const;
-
-    /**
-     * Stall the fetch stage after reaching a safe drain point.
-     *
-     * The CPU uses this method to stop fetching instructions from a
-     * thread that has been drained. The drain stall is different from
-     * all other stalls in that it is signaled instantly from the
-     * commit stage (without the normal communication delay) when it
-     * has reached a safe point to drain from.
-     */
-    void drainStall(ThreadID tid);
-
-    /** Takes over from another CPU's thread. */
-    void takeOverFrom() { resetStage(); }
-
-    void deactivateThread(ThreadID tid) {};
-
-    /** Processing all input signals and create the next fetch target. */
-    void tick();
-
-  private:
-    /** Reset this pipeline stage */
-    void resetStage();
-
-    /** Changes the status of this stage to active, and indicates this
-     * to the CPU.
-     */
-    void switchToActive();
-
-    /** Changes the status of this stage to inactive, and indicates
-     * this to the CPU.
-     */
-    void switchToInactive();
-
-    /** Checks if a thread is stalled. */
-    bool checkStall(ThreadID tid) const;
-
-    /** Updates overall BAC stage status; to be called at the end of each
-     * cycle. */
-    void updateBACStatus();
-
-    /** Checks all input signals and updates the status as necessary.
-     *  @return: Returns if the status has changed due to input signals.
-     */
-    bool checkSignalsAndUpdate(ThreadID tid);
-
-    /** Check the backward signals that update the BPU. */
-    bool checkAndUpdateBPUSignals(ThreadID tid);
-
-
-  private:
-
-    /* ----------------------------------------------------------------
-     * Decoupled Frontend Functionality
-     *
-     * In a decoupled frontend the Branch predictor unit (BPU)
-     * is not directly queried by Fetch once it pre-decodes
-     * a branch. Instead BPU and Fetch is separated and
-     * connected via a queue fetch target queue (FTQ). The BPU generates
-     * fetch targets, similar to basic blocks (BB) and inserts them in
-     * the queue. Fetch will consume the addresses and read them from the
-     * I-cache.
-     * The advantages are that it (1) cuts the critical path and (2)
-     * allow a precise, BPU guided prefetching of the fetch targets.
-     *
-     * For determining next PC addresses the BPU relies solely on the BTB.
-     *
-     * The follwing functions are only used in the decoupled scenario.
-     */
-
-    /**
-     * Create a new fetch target.
-     * @param start_pc The current PC. Will be the start address of the
-     * fetch target.
-    */
-    FetchTargetPtr newFetchTarget(ThreadID tid, const PCStateBase &start_pc);
-
-    /**
-     * The prediction function for the BAC stage. In the decoupled scenario
-     * the branch history is not added to the BPUs very own predictor history
-     * because at the moment a prediction is made the sequence number in
-     * not known.
-     * @param inst The branch instruction.
-     * @param ft The fetch target that is currently processed.
-     * @param PC The predicted PC is passed back through this parameter.
-     * @return Returns if the branch is taken or not.
-     */
-    bool predict(ThreadID tid, const StaticInstPtr &inst,
-                 const FetchTargetPtr &ft, PCStateBase &pc);
-
-
-    /**
-     * Main function that feeds the FTQ with new fetch targets.
-     * By leveraging the BTB up to N consecutive addresses are searched
-     * to detect a branch instruction. For every BTB hit the direction
-     * predictor is asked to make a prediction.
-     * In every cycle one fetch target is created. A fetch target ends
-     * once the first branch instruction is detected or the maximum
-     * search bandwidth for a cycle is reached.
-     **/
-    void generateFetchTargets(ThreadID tid, bool &status_change);
-
-
-
-    /* ----------------------------------------------------------------
-     * Next PC address calculation
-     *
-     * To update the PC the fetch stage will call the updatePC() method
-     * with the currently pre-decoded instruction.
-     * The BAC stage will then check if the instruction is a branch and
-     * either preform the branch prediction (non-decoupled scenario) or
-     * read the branch prediction from the currentently processed fetch
-     * target (decoupled scenario).
-     */
-  public:
-    /**
-     * Calculate the next PC address depending on the instruction type
-     * and the branch prediction.
-     * @param inst The currently processed dynamic instruction.
-     * @param fetch_pc The current fetch PC passed in by reference. It will
-     * be updated with what the next PC will be.
-     * @param ft The currently processed fetch target. Can be nullptr for
-     * the non-decoupled scenario.
-     * @return Whether or not a branch was predicted as taken.
-     */
-    bool updatePC(const DynInstPtr &inst, PCStateBase &fetch_pc,
-                  FetchTargetPtr &ft);
-
-
-  private:
-
-    /** Pre-decode update -----------------------------------------
-     * After predecoding instruction in the fetch stage all instructions
-     * are known together and a sequence number is assigned to them.
-     * The fetch stage will call this function for every branch instruction
-     * to allow the BAC stage to update the branch predictor history.
-     *
-     * There can be the following two cases:
-     * - The branch was detected by the BAC stage and a prediction was made.
-     *   In that case the branch history is moved from the FTQ to the BPU.
-     *
-     * - The branch was not detected by the BAC stage. In that case a "dummy"
-     *   branch history is created and inserted into the BPU. For this dummy
-     *   prediction it is assumed that the branch is not taken.
-     *   If it turns unconditional or is taken decode or commit will squash
-     *   the branch.
-     *
-     * This function performs the following steps:
-     *  - For every branch where a prediction was made in the first place
-     * It moves the branch history from the FTQ to the BPU.
-     *
-     * Together with inserting an instruction into the instruction queue
-     *  instruction matches the predicted
-     * instruction type. If so update the information with the new.
-     * In case the types dont match something is wrong and we need
-     * to squash. (should not be the case.)
-     * @param seq_num The branches sequence that we want to update.
-     * @param inst The new pre-decoded branch instruction.
-     * @param tid The thread id.
-     * @return Returns if the update was successful.
-     */
-    bool updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
-                         const StaticInstPtr &inst, PCStateBase &pc,
-                         const FetchTargetPtr &ft);
-
-  private:
-
-    /** Squashes BAC for a specific thread and resets the PC. */
-    void squash(const PCStateBase &new_pc, ThreadID tid);
-
-    /**
-     * Squashes the BPU histories in the FTQ.
-     * by iterating from tail to head and reverts the predictions made.
-     **/
-    void squashBpuHistories(ThreadID tid);
-
-    /** Update the stats per cycle */
-    void profileCycle(ThreadID tid);
-
-  private:
     /** Pointer to the main CPU. */
     CPU* cpu;
 
@@ -338,9 +94,9 @@ class BAC
     /** Source of possible stalls. */
     struct Stalls
     {
-        bool fetch;
-        bool drain;
-        bool bpu;
+      bool fetch;
+      bool drain;
+      bool bpu;
     };
 
     /** Tracks which stages are telling the ftq to stall. */
@@ -367,8 +123,6 @@ class BAC
 
     /** Number of threads. */
     const ThreadID numThreads;
-
-
 
   protected:
     struct BACStats : public statistics::Group
@@ -414,7 +168,154 @@ class BAC
       statistics::Distribution ftSizeDist;
 
     } stats;
-    /** @} */
+
+
+  public:
+
+    BAC(CPU *_cpu, const BaseO3CPUParams &params);
+
+
+    // Interfaces to CPU ----------------------------------
+    // These functions are to manage the BAC stage
+    // and the interface with the remaining CPU.
+
+    std::string name() const;
+
+    void regProbePoints() {}
+    void setTimeBuffer(TimeBuffer<TimeStruct> *tb_ptr);
+    void setActiveThreads(std::list<ThreadID> *at_ptr);
+    void startupStage();
+    void clearStates(ThreadID tid);
+    void drainResume();
+    void drainSanityCheck() const;
+    bool isDrained() const;
+    void drainStall(ThreadID tid);
+    void takeOverFrom() { resetStage(); }
+    void deactivateThread(ThreadID tid) {};
+    void tick();
+
+    void setFetchTargetQueue(FetchTargetQueue * _ptr);
+
+
+    /* ----------------------------------------------------------------
+     * Next PC address calculation
+     *
+     * To update the PC the fetch stage will call the updatePC() method
+     * with the currently pre-decoded instruction.
+     * The BAC stage will then check if the instruction is a branch and
+     * either preform the branch prediction (non-decoupled scenario) or
+     * read the branch prediction from the currentently processed fetch
+     * target (decoupled scenario).
+     */
+    /**
+     * Calculate the next PC address depending on the instruction type
+     * and the branch prediction.
+     * @param inst The currently processed dynamic instruction.
+     * @param fetch_pc The current fetch PC passed in by reference. It will
+     * be updated with what the next PC will be.
+     * @param ft The currently processed fetch target. Can be nullptr for
+     * the non-decoupled scenario.
+     * @return Whether or not a branch was predicted as taken.
+     */
+    bool updatePC(const DynInstPtr &inst, PCStateBase &fetch_pc,
+                  FetchTargetPtr &ft);
+
+  private:
+
+    void resetStage();
+    void switchToActive();
+    void switchToInactive();
+    bool checkStall(ThreadID tid) const;
+    void updateBACStatus();
+
+    /**
+     * Checks all input signals and updates the status as necessary.
+     * PFC implemented in this method.
+     */
+    bool checkSignalsAndUpdate(ThreadID tid);
+
+    /** Check the backward signals that update the BPU. */
+    bool checkAndUpdateBPUSignals(ThreadID tid);
+
+
+    /**
+     * Create a new fetch target.
+     * @param start_pc The current PC. Will be the start address of the
+     * fetch target.
+    */
+    FetchTargetPtr newFetchTarget(ThreadID tid, const PCStateBase &start_pc);
+
+    /**
+     * The prediction function for the BAC stage. In the decoupled scenario
+     * the branch history is not added to the BPUs very own predictor history
+     * because at the moment a prediction is made the sequence number in
+     * not known.
+     * @param inst The branch instruction.
+     * @param ft The fetch target that is currently processed.
+     * @param PC The predicted PC is passed back through this parameter.
+     * @return Returns if the branch is taken or not.
+     */
+    bool predict(ThreadID tid, const StaticInstPtr &inst,
+                 const FetchTargetPtr &ft, PCStateBase &pc);
+
+
+    /**
+     * Main function that feeds the FTQ with new fetch targets.
+     * By leveraging the BTB up to N consecutive addresses are searched
+     * to detect a branch instruction. For every BTB hit the direction
+     * predictor is asked to make a prediction.
+     * In every cycle one fetch target is created. A fetch target ends
+     * once the first branch instruction is detected or the maximum
+     * search bandwidth for a cycle is reached.
+     **/
+    void generateFetchTargets(ThreadID tid, bool &status_change);
+
+
+    /** Pre-decode update -----------------------------------------
+     * After predecoding instruction in the fetch stage all instructions
+     * are known together and a sequence number is assigned to them.
+     * The fetch stage will call this function for every branch instruction
+     * to allow the BAC stage to update the branch predictor history.
+     *
+     * There can be the following two cases:
+     * - The branch was detected by the BAC stage and a prediction was made.
+     *   In that case the branch history is moved from the FTQ to the BPU.
+     *
+     * - The branch was not detected by the BAC stage. In that case a "dummy"
+     *   branch history is created and inserted into the BPU. For this dummy
+     *   prediction it is assumed that the branch is not taken.
+     *   If it turns unconditional or is taken decode or commit will squash
+     *   the branch.
+     *
+     * This function performs the following steps:
+     *  - For every branch where a prediction was made in the first place
+     * It moves the branch history from the FTQ to the BPU.
+     *
+     * Together with inserting an instruction into the instruction queue
+     *  instruction matches the predicted
+     * instruction type. If so update the information with the new.
+     * In case the types dont match something is wrong and we need
+     * to squash. (should not be the case.)
+     * @param seq_num The branches sequence that we want to update.
+     * @param inst The new pre-decoded branch instruction.
+     * @param tid The thread id.
+     * @return Returns if the update was successful.
+     */
+    bool updatePreDecode(ThreadID tid, const InstSeqNum seqNum,
+                         const StaticInstPtr &inst, PCStateBase &pc,
+                         const FetchTargetPtr &ft);
+
+    /** Squashes BAC for a specific thread and resets the PC. */
+    void squash(const PCStateBase &new_pc, ThreadID tid);
+
+    /**
+     * Squashes the BPU histories in the FTQ.
+     * by iterating from tail to head and reverts the predictions made.
+     **/
+    void squashBpuHistories(ThreadID tid);
+
+    /** Update the stats per cycle */
+    void profileCycle(ThreadID tid);
 };
 
 } // namespace o3

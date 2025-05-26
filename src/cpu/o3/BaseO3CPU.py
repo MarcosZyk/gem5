@@ -211,5 +211,4 @@ class BaseO3CPU(BaseCPU):
         "Minimum instruction size (bytes). Determines the granularity "
         "of the instruction minimum search width per cycle",
     )
-    decoupledFrontEnd = Param.Bool(False, "Enables the decoupled front-end")
 

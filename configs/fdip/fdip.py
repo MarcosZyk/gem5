@@ -187,9 +187,6 @@ else:  # Variable length ISA (x86) must search every byte
 # cpu.branchPred = BPLTage()
 cpu.branchPred = LTAGE()
 
-# Finally the `decoupledFrontEnd` parameter enables the decoupled front-end.
-cpu.decoupledFrontEnd = True
-
 
 print(
     "Running {} on {}, FDP {}".format(

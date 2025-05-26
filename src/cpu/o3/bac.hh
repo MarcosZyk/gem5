@@ -346,9 +346,6 @@ class BAC
     /** Tracks which stages are telling the ftq to stall. */
     Stalls stalls[MaxThreads];
 
-    /** Enables the decoupled front-end */
-    const bool decoupledFrontEnd;
-
     /** Fetch to BAC delay. */
     const Cycles fetchToBacDelay;
 

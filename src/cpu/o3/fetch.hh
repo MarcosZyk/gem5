@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2010-2012, 2014 ARM Limited
- * Copyright (c) 2022-2023 The University of Edinburgh
  * All rights reserved
  *
  * The license below extends only to copyright in the software and shall
@@ -454,22 +453,22 @@ class Fetch
     Stalls stalls[MaxThreads];
 
     /** Decode to fetch delay. */
-    const Cycles decodeToFetchDelay;
+    Cycles decodeToFetchDelay;
 
     /** Rename to fetch delay. */
-    const Cycles renameToFetchDelay;
+    Cycles renameToFetchDelay;
 
     /** IEW to fetch delay. */
-    const Cycles iewToFetchDelay;
+    Cycles iewToFetchDelay;
 
     /** Commit to fetch delay. */
-    const Cycles commitToFetchDelay;
+    Cycles commitToFetchDelay;
 
     /** The width of fetch in instructions. */
-    const unsigned fetchWidth;
+    unsigned fetchWidth;
 
     /** The width of decode in instructions. */
-    const unsigned decodeWidth;
+    unsigned decodeWidth;
 
     /** Is the cache blocked?  If so no threads can access it. */
     bool cacheBlocked;

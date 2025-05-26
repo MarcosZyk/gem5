@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2010-2014 ARM Limited
  * Copyright (c) 2012-2013 AMD
- * Copyright (c) 2022-2023 The University of Edinburgh
  * All rights reserved.
  *
  * The license below extends only to copyright in the software and shall
@@ -83,7 +82,8 @@ Fetch::IcachePort::IcachePort(Fetch *_fetch, CPU *_cpu) :
 Fetch::Fetch(CPU *_cpu, const BaseO3CPUParams &params)
     : fetchPolicy(params.smtFetchPolicy),
       cpu(_cpu),
-      bac(nullptr), ftq(nullptr),
+      bac(nullptr),
+      ftq(nullptr),
       decodeToFetchDelay(params.decodeToFetchDelay),
       renameToFetchDelay(params.renameToFetchDelay),
       iewToFetchDelay(params.iewToFetchDelay),
@@ -99,8 +99,7 @@ Fetch::Fetch(CPU *_cpu, const BaseO3CPUParams &params)
       numThreads(params.numThreads),
       numFetchingThreads(params.smtNumFetchingThreads),
       icachePort(this, _cpu),
-      finishTranslationEvent(this),
-      fetchStats(_cpu, this)
+      finishTranslationEvent(this), fetchStats(_cpu, this)
 {
     if (numThreads > MaxThreads)
         fatal("numThreads (%d) is larger than compiled limit (%d),\n"
@@ -510,7 +509,6 @@ Fetch::ftqReady(ThreadID tid, bool &status_change)
     return true;
 }
 
-
 bool
 Fetch::fetchCacheLine(Addr vaddr, ThreadID tid, Addr pc)
 {
@@ -646,7 +644,7 @@ Fetch::finishTranslation(const Fault &fault, const RequestPtr &mem_req)
         const PCStateBase &fetch_pc = *pc[tid];
 
         DPRINTF(Fetch, "[tid:%i] Translation faulted, building noop.\n", tid);
-        // We will use a nop in order to carry the fault.
+        // We will use a nop in ordier to carry the fault.
         DynInstPtr instruction = buildInst(tid, nopStaticInstPtr, nullptr,
                 fetch_pc, fetch_pc, false);
         instruction->setNotAnInst();
@@ -666,34 +664,6 @@ Fetch::finishTranslation(const Fault &fault, const RequestPtr &mem_req)
     }
     _status = updateFetchStatus();
 }
-
-
-void
-Fetch::squashFromDecode(const PCStateBase &new_pc, const DynInstPtr squashInst,
-        const InstSeqNum seq_num, ThreadID tid)
-{
-    DPRINTF(Fetch, "[tid:%i] Squashing from decode.\n", tid);
-
-    doSquash(new_pc, squashInst, tid);
-
-    // Tell the CPU to remove any instructions that are in flight between
-    // fetch and decode.
-    cpu->removeInstsUntil(seq_num, tid);
-}
-
-
-void
-Fetch::squash(const PCStateBase &new_pc, const InstSeqNum seq_num,
-        DynInstPtr squashInst, ThreadID tid)
-{
-    DPRINTF(Fetch, "[tid:%i] Squash from commit.\n", tid);
-
-    doSquash(new_pc, squashInst, tid);
-
-    // Tell the CPU to remove any instructions that are not in the ROB.
-    cpu->removeInstsNotInROB(tid);
-}
-
 
 void
 Fetch::doSquash(const PCStateBase &new_pc, const DynInstPtr squashInst,
@@ -747,6 +717,18 @@ Fetch::doSquash(const PCStateBase &new_pc, const DynInstPtr squashInst,
     ++fetchStats.squashCycles;
 }
 
+void
+Fetch::squashFromDecode(const PCStateBase &new_pc, const DynInstPtr squashInst,
+        const InstSeqNum seq_num, ThreadID tid)
+{
+    DPRINTF(Fetch, "[tid:%i] Squashing from decode.\n", tid);
+
+    doSquash(new_pc, squashInst, tid);
+
+    // Tell the CPU to remove any instructions that are in flight between
+    // fetch and decode.
+    cpu->removeInstsUntil(seq_num, tid);
+}
 
 void
 Fetch::bacResteer(const PCStateBase &new_pc, ThreadID tid)
@@ -813,6 +795,18 @@ Fetch::updateFetchStatus()
 }
 
 void
+Fetch::squash(const PCStateBase &new_pc, const InstSeqNum seq_num,
+        DynInstPtr squashInst, ThreadID tid)
+{
+    DPRINTF(Fetch, "[tid:%i] Squash from commit.\n", tid);
+
+    doSquash(new_pc, squashInst, tid);
+
+    // Tell the CPU to remove any instructions that are not in the ROB.
+    cpu->removeInstsNotInROB(tid);
+}
+
+void
 Fetch::tick()
 {
     std::list<ThreadID>::iterator threads = activeThreads->begin();
@@ -831,7 +825,7 @@ Fetch::tick()
         // Check the signals for each thread to determine the proper status
         // for each thread.
         bool updated_status = checkSignalsAndUpdate(tid);
-        status_change = status_change || updated_status;
+        status_change =  status_change || updated_status;
     }
 
     DPRINTF(Fetch, "Running stage.\n");

@@ -103,9 +103,8 @@ class LTAGE : public TAGE
     struct LTageBranchInfo : public TageBranchInfo
     {
         LoopPredictor::BranchInfo *lpBranchInfo;
-        LTageBranchInfo(TAGEBase &tage, LoopPredictor &lp,
-                        Addr pc, bool conditional)
-          : TageBranchInfo(tage, pc, conditional),
+        LTageBranchInfo(TAGEBase &tage, LoopPredictor &lp)
+          : TageBranchInfo(tage),
             lpBranchInfo(lp.makeBranchInfo())
         {}
 

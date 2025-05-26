@@ -81,9 +81,9 @@ TAGE_SC_L::TAGE_SC_L(const TAGE_SC_LParams &p)
 }
 
 TAGEBase::BranchInfo*
-TAGE_SC_L_TAGE::makeBranchInfo(Addr pc, bool cond)
+TAGE_SC_L_TAGE::makeBranchInfo()
 {
-    return new BranchInfo(*this, pc, cond);
+    return new BranchInfo(*this);
 }
 void
 TAGE_SC_L_TAGE::calculateParameters()

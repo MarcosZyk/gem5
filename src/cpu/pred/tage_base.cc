@@ -80,6 +80,11 @@ TAGEBase::TAGEBase(const TAGEBaseParams &p)
 }
 
 TAGEBase::BranchInfo*
+TAGEBase::makeBranchInfo() {
+    return new BranchInfo(*this);
+}
+
+TAGEBase::BranchInfo*
 TAGEBase::makeBranchInfo(Addr pc, bool conditional) {
     return new BranchInfo(*this, pc, conditional);
 }

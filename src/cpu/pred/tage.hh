@@ -85,6 +85,9 @@ class TAGE: public BPredUnit
     {
         TAGEBase::BranchInfo *tageBranchInfo;
 
+        TageBranchInfo(TAGEBase &tage) : tageBranchInfo(tage.makeBranchInfo())
+        {}
+
         TageBranchInfo(TAGEBase &tage, Addr pc, bool conditional)
         : tageBranchInfo(tage.makeBranchInfo(pc, conditional))
         {}

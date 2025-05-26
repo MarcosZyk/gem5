@@ -76,8 +76,7 @@ LTAGE::init()
 bool
 LTAGE::predict(ThreadID tid, Addr branch_pc, bool cond_branch, void* &b)
 {
-    LTageBranchInfo *bi = new LTageBranchInfo(*tage, *loopPredictor,
-                                              branch_pc, cond_branch);
+    LTageBranchInfo *bi = new LTageBranchInfo(*tage, cond_branch);
     b = (void*)(bi);
 
     bool pred_taken = tage->tagePredict(tid, branch_pc, cond_branch,

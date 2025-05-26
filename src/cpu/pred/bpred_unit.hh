@@ -166,7 +166,7 @@ class BPredUnit : public SimObject
      *
      */
     virtual void updateHistories(ThreadID tid, Addr pc, bool uncond,
-                           bool taken, Addr target, void * &bp_history) = 0;
+                            bool taken, Addr target, void * &bp_history) = 0;
 
     /**
      * @param tid The thread id.

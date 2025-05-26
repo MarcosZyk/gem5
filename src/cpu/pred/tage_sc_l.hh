@@ -91,15 +91,14 @@ class TAGE_SC_L_TAGE : public TAGEBase
         bool highConf;
         bool altConf;
         bool medConf;
-        BranchInfo(TAGEBase &tage, Addr pc, bool cond)
-          : TAGEBase::BranchInfo(tage, pc, cond),
+        BranchInfo(TAGEBase &tage) : TAGEBase::BranchInfo(tage),
             lowConf(false), highConf(false), altConf(false), medConf(false)
         {}
         virtual ~BranchInfo()
         {}
     };
 
-    virtual TAGEBase::BranchInfo *makeBranchInfo(Addr pc, bool cond) override;
+    virtual TAGEBase::BranchInfo *makeBranchInfo() override;
 
     TAGE_SC_L_TAGE(const TAGE_SC_L_TAGEParams &p)
       : TAGEBase(p),

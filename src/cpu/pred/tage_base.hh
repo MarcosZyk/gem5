@@ -340,16 +340,6 @@ class TAGEBase : public SimObject
     */
     void restoreHistState(ThreadID tid, BranchInfo* bi);
 
-    /** Does the actual update of path and global history. Different TAGE
-     * implementations may override this function to do extra work.
-     * @param tid The thread ID to select the histories to update.
-     * @param taken Actual branch outcome.
-     * @param branch_pc The unshifted branch PC.
-     * @param target The branch target
-     * @param bi Pointer to information on the prediction
-     */
-    virtual void updatePathAndGlobalHistory(ThreadID tid, bool taken, Addr branch_pc, Addr target, BranchInfo* bi);
-
     /**
      * Restores speculatively updated path and direction histories.
      * Also recomputes compressed (folded) histories based on the
@@ -472,6 +462,30 @@ class TAGEBase : public SimObject
     int getPathHist(ThreadID tid) const;
     bool isSpeculativeUpdateEnabled() const;
     size_t getSizeInBits() const;
+
+private:
+
+
+    /**
+    * Internal implementation of updateHistories
+    */
+    virtual void checkAndUpdateHistories(
+        ThreadID tid, Addr branch_pc, bool taken, BranchInfo* b,
+        bool speculative,
+        Addr target = MaxAddr);
+
+    /**
+     * Does the actual update of path and global history. Different TAGE
+     * implementations may override this function to do extra work.
+     * @param tid The thread ID to select the histories to update.
+     * @param taken Actual branch outcome.
+     * @param branch_pc The unshifted branch PC.
+     * @param target The branch target
+     * @param bi Pointer to information on the prediction
+     */
+    virtual void executeUpdatePathAndGlobalHistory(
+        ThreadID tid, bool taken, Addr branch_pc, Addr target, BranchInfo* bi);
+
 
   protected:
     const unsigned logRatioBiModalHystEntries;

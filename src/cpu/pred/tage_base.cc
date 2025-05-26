@@ -586,7 +586,7 @@ TAGEBase::handleTAGEUpdate(Addr branch_pc, bool taken, BranchInfo* bi)
 }
 
 void
-TAGEBase::updatePathAndGlobalHistory(ThreadID tid, bool taken,
+TAGEBase::executeUpdatePathAndGlobalHistory(ThreadID tid, bool taken,
                                 Addr branch_pc, Addr target, BranchInfo* bi)
 {
     ThreadHistory& tHist = threadHistory[tid];
@@ -598,9 +598,6 @@ TAGEBase::updatePathAndGlobalHistory(ThreadID tid, bool taken,
 
 
     if (takenOnlyHistory) {
-        // Taken-only history is implemented after the paper:
-        // https://ieeexplore.ieee.org/document/9246215
-        //
         // For taken-only history two bits of a hash of pc and its target
         // is shifted into the global history in case the branch was taken.
         // For not-taken branches no history update will happen.
@@ -621,11 +618,9 @@ TAGEBase::updatePathAndGlobalHistory(ThreadID tid, bool taken,
     bi->modified = true;
 }
 
-
 void
-TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool taken,
-                          BranchInfo* bi, bool speculative,
-                          const StaticInstPtr &inst, Addr target)
+TAGEBase::checkAndUpdateHistories(ThreadID tid, Addr branch_pc, bool taken,
+                          BranchInfo* bi, bool speculative, Addr target)
 {
     if (speculative != speculativeHistUpdate) {
         return;
@@ -659,15 +654,22 @@ TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool taken,
     // for this branch
     assert(bi->nGhist == 0);
 
-    // Do the actual history update. Might be different for different
-    // TAGE implementations.
-    updatePathAndGlobalHistory(tid, taken, branch_pc, target, bi);
+    // Do the actual history update.
+    executeUpdatePathAndGlobalHistory(tid, taken, branch_pc, target, bi);
 
     DPRINTF(Tage, "Updating global histories with branch:%lx; taken?:%d, "
             "path Hist: %x; pointer:%d\n", branch_pc, taken,
             threadHistory[tid].pathHist, threadHistory[tid].ptGhist);
     assert(threadHistory[tid].gHist ==
             &threadHistory[tid].globalHistory[threadHistory[tid].ptGhist]);
+}
+
+void
+TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool taken,
+                          BranchInfo* bi, bool speculative,
+                          const StaticInstPtr &inst, Addr target)
+{
+    checkAndUpdateHistories(tid, branch_pc, taken, bi, speculative, target);
 }
 
 void
@@ -722,7 +724,7 @@ void
 TAGEBase::squash(ThreadID tid, bool taken, Addr target,
                  const StaticInstPtr &inst, TAGEBase::BranchInfo *bi)
 {
-    updateHistories(tid, bi->branchPC, taken, bi, true, inst, target);
+    checkAndUpdateHistories(tid, bi->branchPC, taken, bi, true, target);
 }
 
 void

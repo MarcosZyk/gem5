@@ -109,7 +109,7 @@ TAGEBase::init()
     assert(logUResetPeriod != 0);
     tCounter = initialTCounterValue;
 
-    assert(histBufferSize > maxHist * 3);
+    assert(histBufferSize > maxHist * 2);
 
     useAltPredForNewlyAllocated.resize(numUseAltOnNa, 0);
 
@@ -628,6 +628,14 @@ TAGEBase::handleTAGEUpdate(Addr branch_pc, bool taken, BranchInfo* bi)
 }
 
 void
+TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool taken,
+                              BranchInfo* bi, bool speculative,
+                              const StaticInstPtr &inst, Addr target)
+{
+    checkAndUpdateHistories(tid, branch_pc, taken, bi, speculative, target);
+}
+
+void
 TAGEBase::executeUpdatePathAndGlobalHistory(ThreadID tid, bool taken,
                                 Addr branch_pc, Addr target, BranchInfo* bi)
 {
@@ -704,14 +712,6 @@ TAGEBase::checkAndUpdateHistories(ThreadID tid, Addr branch_pc, bool taken,
             threadHistory[tid].pathHist, threadHistory[tid].ptGhist);
     assert(threadHistory[tid].gHist ==
             &threadHistory[tid].globalHistory[threadHistory[tid].ptGhist]);
-}
-
-void
-TAGEBase::updateHistories(ThreadID tid, Addr branch_pc, bool taken,
-                          BranchInfo* bi, bool speculative,
-                          const StaticInstPtr &inst, Addr target)
-{
-    checkAndUpdateHistories(tid, branch_pc, taken, bi, speculative, target);
 }
 
 void

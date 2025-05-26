@@ -14,12 +14,12 @@ namespace o3
 
 
 /** Fetch Target Methods -------------------------------- */
-FetchTarget::FetchTarget(const PCStateBase &_start_pc, InstSeqNum _seqNum)
-    : ftSeqNum(_seqNum),
+FetchTarget::FetchTarget(const PCStateBase &start_pc, InstSeqNum seq_num)
+    : ftSeqNum(seq_num),
       is_branch(false), taken(false),
       bpu_history(nullptr)
 {
-    set(startPC , _start_pc);
+    set(startPC , start_pc);
 }
 
 
@@ -35,32 +35,20 @@ FetchTarget::finalize(const PCStateBase &exit_pc, InstSeqNum sn,
 }
 
 
-std::string
-FetchTarget::print()
-{
-    std::stringstream ss;
-    ss << "FT[" << ftSeqNum << "]: [0x" << std::hex
-        << startPC->instAddr() << "->0x" << endPC->instAddr()
-        << "|B:" << is_branch
-        << "]";
-    return ss.str();
-}
-
-
 /** Fetch Target Qeue Methods ----------------------------- */
 
-FTQ::FTQ(CPU *_cpu, const BaseO3CPUParams &params)
-    : cpu(_cpu),
+FetchTargetQueue::FetchTargetQueue(CPU *belonged_cpu, const BaseO3CPUParams &params)
+    : cpu(belonged_cpu),
       numThreads(params.numThreads),
       numEntries(params.numFTQEntries),
-      stats(_cpu, this)
+      statsFTQ(belonged_cpu, this)
 {
     resetState();
 }
 
 
 void
-FTQ::resetState()
+FetchTargetQueue::resetState()
 {
     for (ThreadID tid = 0; tid  < numThreads; tid++) {
         ftq[tid].clear();
@@ -70,14 +58,14 @@ FTQ::resetState()
 
 
 std::string
-FTQ::name() const
+FetchTargetQueue::name() const
 {
     return cpu->name() + ".ftq";
 }
 
 
 void
-FTQ::regProbePoints()
+FetchTargetQueue::regProbePoints()
 {
     ppFTQInsert = new ProbePointArg<FetchTargetPtr>(cpu->getProbeManager(),
                                                         "FTQInsert");
@@ -86,25 +74,25 @@ FTQ::regProbePoints()
 }
 
 unsigned
-FTQ::numFreeEntries(ThreadID tid)
+FetchTargetQueue::numFreeEntries(ThreadID tid)
 {
     return numEntries - ftq[tid].size();
 }
 
 unsigned
-FTQ::size(ThreadID tid)
+FetchTargetQueue::size(ThreadID tid)
 {
     return ftq[tid].size();
 }
 
 bool
-FTQ::isFull(ThreadID tid)
+FetchTargetQueue::isFull(ThreadID tid)
 {
     return ftq[tid].size() >= numEntries;
 }
 
 bool
-FTQ::isEmpty() const
+FetchTargetQueue::isEmpty() const
 {
     for (ThreadID tid = numThreads; tid < MaxThreads; tid++) {
         if (!ftq[tid].empty()) return false;
@@ -113,14 +101,14 @@ FTQ::isEmpty() const
 }
 
 bool
-FTQ::isEmpty(ThreadID tid) const
+FetchTargetQueue::isEmpty(ThreadID tid) const
 {
     return ftq[tid].empty();
 }
 
 
 void
-FTQ::invalidate(ThreadID tid)
+FetchTargetQueue::invalidate(ThreadID tid)
 {
     /** Only a full ftq can be invalid*/
     if (!ftq[tid].empty())
@@ -128,27 +116,27 @@ FTQ::invalidate(ThreadID tid)
 }
 
 bool
-FTQ::isValid(ThreadID tid)
+FetchTargetQueue::isValid(ThreadID tid)
 {
     return ftqStatus[tid] != Invalid;
 }
 
 
 void
-FTQ::lock(ThreadID tid)
+FetchTargetQueue::lock(ThreadID tid)
 {
     ftqStatus[tid] = Locked;
 }
 
 bool
-FTQ::isLocked(ThreadID tid)
+FetchTargetQueue::isLocked(ThreadID tid)
 {
     return ftqStatus[tid] == Locked;
 }
 
 
 void
-FTQ::forAllForward(ThreadID tid, std::function<void(FetchTargetPtr&)> f)
+FetchTargetQueue::forAllForward(ThreadID tid, std::function<void(FetchTargetPtr&)> f)
 {
     for (auto it = ftq[tid].begin(); it != ftq[tid].end(); it++) {
         f(*it);
@@ -156,7 +144,7 @@ FTQ::forAllForward(ThreadID tid, std::function<void(FetchTargetPtr&)> f)
 }
 
 void
-FTQ::forAllBackward(ThreadID tid, std::function<void(FetchTargetPtr&)> f)
+FetchTargetQueue::forAllBackward(ThreadID tid, std::function<void(FetchTargetPtr&)> f)
 {
     for (auto it = ftq[tid].rbegin(); it != ftq[tid].rend(); it++) {
         f(*it);
@@ -166,20 +154,20 @@ FTQ::forAllBackward(ThreadID tid, std::function<void(FetchTargetPtr&)> f)
 
 
 void
-FTQ::insert(ThreadID tid, FetchTargetPtr fetchTarget)
+FetchTargetQueue::insert(ThreadID tid, FetchTargetPtr fetchTarget)
 {
     ftq[tid].push_back(fetchTarget);
     ppFTQInsert->notify(fetchTarget);
-    stats.inserts++;
-    stats.occupancy.sample(ftq[tid].size());
+    statsFTQ.inserts++;
+    statsFTQ.occupancy.sample(ftq[tid].size());
 
-    DPRINTF(FTQ, "Insert %s in FTQ[T:%i]. size FTQ:%i\n",
-                    fetchTarget->print(), tid, ftq[tid].size());
+    DPRINTF(FTQ, "Insert in FTQ[T:%i]. size FTQ:%i\n",
+                    tid, ftq[tid].size());
 }
 
 
 void
-FTQ::squash(ThreadID tid)
+FetchTargetQueue::squash(ThreadID tid)
 {
     for (auto ft : ftq[tid]) {
         assert(ft->bpu_history == nullptr);
@@ -187,11 +175,11 @@ FTQ::squash(ThreadID tid)
     }
     ftq[tid].clear();
     ftqStatus[tid] = Valid;
-    stats.squashes++;
+    statsFTQ.squashes++;
 }
 
 void
-FTQ::squashSanityCheck(ThreadID tid)
+FetchTargetQueue::squashSanityCheck(ThreadID tid)
 {
     for (auto ft : ftq[tid]) {
         assert(ft->bpu_history == nullptr);
@@ -200,14 +188,14 @@ FTQ::squashSanityCheck(ThreadID tid)
 
 
 bool
-FTQ::isHeadReady(ThreadID tid)
+FetchTargetQueue::isHeadReady(ThreadID tid)
 {
     return (ftqStatus[tid] != Invalid) && (ftq[tid].size() > 0);
 }
 
 
 FetchTargetPtr
-FTQ::readHead(ThreadID tid)
+FetchTargetQueue::readHead(ThreadID tid)
 {
     if (ftqStatus[tid] == Invalid) return nullptr;
     if (ftq[tid].empty()) return nullptr;
@@ -217,7 +205,7 @@ FTQ::readHead(ThreadID tid)
 
 
 bool
-FTQ::updateHead(ThreadID tid)
+FetchTargetQueue::updateHead(ThreadID tid)
 {
     if (ftq[tid].front()->bpu_history != nullptr) {
         DPRINTF(FTQ, "Pop FT:[fn%llu] failed. Still contains BP history.\n",
@@ -241,24 +229,13 @@ FTQ::updateHead(ThreadID tid)
 
     ppFTQRemove->notify(ftq[tid].front());
     ftq[tid].pop_front();
-    stats.removals++;
+    statsFTQ.removals++;
     return ret_val;
 }
 
 
 
-void
-FTQ::printFTQ(ThreadID tid) {
-    int i = 0;
-    for (auto ft : ftq[tid]) {
-        DPRINTF(FTQ, "FTQ[tid:%i][%i]: %s.\n", tid, i, ft->print());
-        i++;
-    }
-}
-
-
-
-FTQ::FTQStats::FTQStats(o3::CPU *cpu, FTQ *ftq)
+FetchTargetQueue::FTQStats::FTQStats(o3::CPU *cpu, FetchTargetQueue *ftq)
   : statistics::Group(cpu, "ftq"),
     ADD_STAT(inserts, statistics::units::Count::get(),
         "The number of FTQ insertions"),

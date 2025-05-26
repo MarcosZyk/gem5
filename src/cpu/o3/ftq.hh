@@ -23,22 +23,21 @@ class CPU;
 
 struct DerivO3CPUParams;
 
-// Fetch target sequence type. Basically the same as the instruction sequence
-// number but since the fetch target is generated before instructions.
+// Dynamic instruction execution in O3 CPU.
+// One instruction may be re-executed, thus in need of a runtime ID.
 typedef InstSeqNum FTSeqNum;
 
 
-/** The fetch target class. */
 class FetchTarget
 {
   public:
-    FetchTarget(const PCStateBase &_start_pc, FTSeqNum _seqNum);
+    FetchTarget(const PCStateBase &start_pc, FTSeqNum seq_num);
 
   private:
-    /** Start address of the fetch target */
+
     std::unique_ptr<PCStateBase> startPC;
 
-    /** End address of the fetch target */
+
     std::unique_ptr<PCStateBase> endPC;
 
     /** Predicted target address of the fetch target.
@@ -106,9 +105,6 @@ class FetchTarget
     /** Complete a fetch target with the exit instruction */
     void finalize(const PCStateBase &exit_pc, InstSeqNum sn, bool _is_branch,
                   bool pred_taken, const PCStateBase &pred_pc);
-
-    /** Print the fetch target for debugging. */
-    std::string print();
 };
 
 
@@ -116,17 +112,10 @@ typedef std::shared_ptr<FetchTarget> FetchTargetPtr;
 
 
 
-/**
- * FTQ class.
- */
-class FTQ
+class FetchTargetQueue
 {
   public:
-    /** FTQ constructor.
-     *  @param _cpu   The cpu object pointer.
-     *  @param params The cpu params incl. several FTQ-specific parameters.
-     */
-    FTQ(CPU *_cpu, const BaseO3CPUParams &params);
+    FetchTargetQueue(CPU *belonged_cpu, const BaseO3CPUParams &params);
 
     std::string name() const;
 
@@ -244,15 +233,11 @@ public:
     bool updateHead(ThreadID tid);
 
 
-    /** Print the all fetch targets in the FTQ for debugging. */
-    void printFTQ(ThreadID tid);
-
-
   private:
 
     struct FTQStats : public statistics::Group
     {
-        FTQStats(CPU *cpu, FTQ *ftq);
+        FTQStats(CPU *cpu, FetchTargetQueue *ftq);
 
         statistics::Scalar inserts;
         statistics::Scalar removals;
@@ -260,7 +245,7 @@ public:
         statistics::Scalar locks;
 
         statistics::Distribution occupancy;
-    } stats;
+    } statsFTQ;
 };
 
 } // namespace o3

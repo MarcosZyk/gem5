@@ -228,7 +228,7 @@ class Fetch
     void setFetchQueue(TimeBuffer<FetchStruct> *fq_ptr);
 
     /** Sets pointer to branch address calculation stage and FTQ */
-    void setBACandFTQPtr(BAC *bac_ptr, FTQ * ftq_ptr);
+    void setBACandFTQPtr(BAC *bac_ptr, FetchTargetQueue * ftq_ptr);
 
     /** Initialize stage. */
     void startupStage();
@@ -421,7 +421,7 @@ class Fetch
     BAC *bac;
 
     /** Fetch Target Queue */
-    FTQ *ftq;
+    FetchTargetQueue *ftq;
 
     std::unique_ptr<PCStateBase> pc[MaxThreads];
 

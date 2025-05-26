@@ -75,7 +75,7 @@ BAC::setActiveThreads(std::list<ThreadID> *at_ptr)
 }
 
 void
-BAC::setFetchTargetQueue(FTQ * _ptr)
+BAC::setFetchTargetQueue(FetchTargetQueue * _ptr)
 {
     // Set pointer to the fetch target queue
     ftq = _ptr;

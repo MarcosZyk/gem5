@@ -412,7 +412,7 @@ class CPU : public BaseCPU
     BAC bac;
 
     /** The Fetch taget queue. */
-    FTQ ftq;
+    FetchTargetQueue ftq;
 
     /** The fetch stage. */
     Fetch fetch;

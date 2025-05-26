@@ -20,7 +20,7 @@ namespace o3
 {
 
 class CPU;
-class FTQ;
+class FetchTargetQueue;
 class FetchTarget;
 typedef std::shared_ptr<FetchTarget> FetchTargetPtr;
 
@@ -106,7 +106,7 @@ class BAC
     void setActiveThreads(std::list<ThreadID> *at_ptr);
 
     /** Initialize stage. */
-    void setFetchTargetQueue(FTQ * _ptr);
+    void setFetchTargetQueue(FetchTargetQueue * _ptr);
 
     /** Initialize stage. */
     void startupStage();
@@ -309,7 +309,7 @@ class BAC
     branch_prediction::BPredUnit* bpu;
 
     /** Fetch target Queue. */
-    FTQ* ftq;
+    FetchTargetQueue* ftq;
 
     /** Time buffer interface. */
     TimeBuffer<TimeStruct> *timeBuffer;

@@ -261,7 +261,7 @@ Fetch::setActiveThreads(std::list<ThreadID> *at_ptr)
 }
 
 void
-Fetch::setBACandFTQPtr(BAC *bac_ptr, FTQ * ftq_ptr)
+Fetch::setBACandFTQPtr(BAC *bac_ptr, FetchTargetQueue * ftq_ptr)
 {
     // Set pointer to the fetch target queue
     bac = bac_ptr;
@@ -1098,8 +1098,8 @@ Fetch::fetch(bool &status_change)
         assert(ftqReady(tid,status_change));
 
         if (!curFT->inRange(this_pc.instAddr())) {
-            DPRINTF(Fetch, "[tid:%i] PC:%#x not within fetch target: %s\n",
-                            tid, this_pc, curFT->print());
+            DPRINTF(Fetch, "[tid:%i] PC:%#x not within fetch target\n",
+                            tid, this_pc);
             bacResteer(this_pc, tid);
             ++fetchStats.ftqStallCycles;
             return;

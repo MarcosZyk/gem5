@@ -128,7 +128,7 @@ TAGE::lookup(ThreadID tid, Addr pc, void* &bp_history)
 
 void
 TAGE::updateHistories(ThreadID tid, Addr pc, bool uncond,
-                      bool taken, Addr target, void * &bp_history)
+                         bool taken, Addr target, void * &bp_history)
 {
     if (bp_history == nullptr) {
 
